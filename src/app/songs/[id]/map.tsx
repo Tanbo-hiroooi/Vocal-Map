@@ -1,6 +1,7 @@
 import { AnnotationEditor } from '@/components/annotations/AnnotationEditor';
 import { VocalLine } from '@/components/annotations/VocalLine';
 import { Button } from '@/components/common/Button';
+import { confirmAction } from '@/components/common/confirmationDialog';
 import { Screen } from '@/components/common/Screen';
 import { colors } from '@/constants/theme';
 import { LyricLine, TextRange } from '@/domain/models';
@@ -8,7 +9,7 @@ import { useAppData } from '@/features/app/AppProvider';
 import { nowIso } from '@/utils/id';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 export default function MapScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,10 +28,11 @@ export default function MapScreen() {
   const closeEditor = () => { setActive(null); setActiveRange(undefined); };
   const openEditor = (line: LyricLine, range?: TextRange) => { setActiveRange(range); setActive(line); };
   const updateLine = async (lineId: string, annotations: LyricLine['annotations']) => saveSong({ ...song, lyrics: song.lyrics.map((line) => line.id === lineId ? { ...line, annotations } : line), updatedAt: nowIso() });
-  const remove = (line: LyricLine, annotationId: string) => Alert.alert('記号を削除しますか？', 'この歌詞行から記号を外します。', [
-    { text: 'キャンセル', style: 'cancel' },
-    { text: '削除', style: 'destructive', onPress: async () => { await updateLine(line.id, line.annotations.filter((annotation) => annotation.id !== annotationId)); closeEditor(); } },
-  ]);
+  const remove = async (line: LyricLine, annotationId: string) => {
+    if (!await confirmAction('記号を削除しますか？', 'この歌詞行から記号を外します。', '削除', true)) return;
+    await updateLine(line.id, line.annotations.filter((annotation) => annotation.id !== annotationId));
+    closeEditor();
+  };
 
   return <Screen contentStyle={styles.screen}>
     <View style={styles.header}><View style={styles.heading}><Text style={styles.title}>{song.title}</Text><Text style={styles.artist}>{song.artist || 'アーティスト未設定'}</Text></View><Button label="曲情報を編集" variant="secondary" onPress={() => router.push(`/songs/${song.id}/edit`)} /></View>
@@ -38,7 +40,7 @@ export default function MapScreen() {
     <View style={styles.guide}><Text style={styles.guideTitle}>歌詞を選択して記号を追加</Text><Text style={styles.guideText}>PCでは歌詞の変更したい部分をドラッグすると、記号追加画面が開きます。iPhoneでは歌詞行をタップし、対象語句の先頭と末尾を選択してください。</Text></View>
     <View style={styles.controls}><Text style={styles.controlLabel}>文字サイズ</Text><Button label="小さく" variant="ghost" onPress={() => setFontSize(Math.max(20, fontSize - 2))} /><Text style={styles.size}>{fontSize}</Text><Button label="大きく" variant="ghost" onPress={() => setFontSize(Math.min(42, fontSize + 2))} /></View>
     <View style={styles.lines}>{song.lyrics.map((line) => <VocalLine key={line.id} line={line} symbols={symbols} fontSize={responsiveFontSize} editing={false} onPress={() => openEditor(line)} onRangeSelect={(range) => openEditor(line, range)} />)}</View>
-    {active && <AnnotationEditor key={`${active.id}-${activeRange?.start ?? 'line'}-${activeRange?.end ?? 'line'}`} visible line={active} symbols={symbols} initialRange={activeRange} onClose={closeEditor} onSave={(annotation) => void updateLine(active.id, [...active.annotations, annotation])} onDelete={(annotationId) => remove(active, annotationId)} />}
+    {active && <AnnotationEditor key={`${active.id}-${activeRange?.start ?? 'line'}-${activeRange?.end ?? 'line'}`} visible line={active} symbols={symbols} initialRange={activeRange} onClose={closeEditor} onSave={(annotation) => void updateLine(active.id, [...active.annotations, annotation])} onDelete={(annotationId) => void remove(active, annotationId)} />}
   </Screen>;
 }
 

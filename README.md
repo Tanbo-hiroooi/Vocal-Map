@@ -51,6 +51,14 @@ npm run ios
 
 または`npm start`後に `w` でWeb、`i` でiOSを開けます。SDK 57対応のExpo Goまたは開発ビルドを使用してください。
 
+## Web確認用URL
+
+`main`ブランチへpushするとGitHub ActionsがWeb版をGitHub Pagesへ自動配信します。
+
+- <https://tanbo-hiroooi.github.io/Vocal-Map/>
+
+確認用URLのデータも外部サーバーへ送信されず、ブラウザ内に保存されます。localhostや別端末のデータとは共有されないため、端末ごとに曲を作成するかJSONバックアップをインポートしてください。
+
 ## 品質チェック
 
 ```bash
