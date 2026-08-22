@@ -84,7 +84,7 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
     }
   };
 
-  return <div ref={rootRef} role="button" tabIndex={0} aria-label={accessibilityLabel} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onClick={handleClick} onKeyDown={handleKeyDown} style={styles.surface}>{children}</div>;
+  return <div ref={rootRef} role="button" tabIndex={0} aria-label={accessibilityLabel} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onClick={handleClick} onKeyDown={handleKeyDown} style={webSurfaceStyle}>{children}</div>;
 }
 
 export function LyricSegmentText({ text, start, style }: { text: string; start: number; style: StyleProp<TextStyle> }) {
@@ -93,6 +93,13 @@ export function LyricSegmentText({ text, start, style }: { text: string; start: 
 }
 
 const styles = StyleSheet.create({
-  surface: { minHeight: 44, justifyContent: 'center', cursor: 'text', userSelect: 'text' },
   lyricText: { userSelect: 'text' },
 });
+
+const webSurfaceStyle: React.CSSProperties = {
+  minHeight: 44,
+  display: 'flex',
+  justifyContent: 'center',
+  cursor: 'text',
+  userSelect: 'text',
+};
