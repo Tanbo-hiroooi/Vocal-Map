@@ -10,7 +10,7 @@ export function Button({ label, onPress, variant='primary', disabled, loading, s
   </Pressable>;
 }
 const styles = StyleSheet.create({
-  base:{minHeight:layout.tapSize,paddingHorizontal:16,paddingVertical:10,borderRadius:12,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'transparent'},
-  primary:{backgroundColor:colors.primary}, secondary:{backgroundColor:colors.primarySoft,borderColor:'#DCCEFF'}, ghost:{backgroundColor:'transparent'}, danger:{backgroundColor:'#FFF0F1',borderColor:'#F4C5CB'},
-  text:{fontSize:15,fontWeight:'700',color:colors.text}, primaryText:{color:'#fff'}, dangerText:{color:colors.danger}, pressed:{opacity:.72}, disabled:{opacity:.45},
+  base:{minHeight:layout.tapSize,paddingHorizontal:16,paddingVertical:10,borderRadius:14,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'transparent'},
+  primary:{backgroundColor:colors.primary,borderColor:colors.primaryDark,borderBottomWidth:3}, secondary:{backgroundColor:colors.primarySoft,borderColor:colors.primaryBorder}, ghost:{backgroundColor:'transparent'}, danger:{backgroundColor:colors.dangerSoft,borderColor:'#EAC0C8'},
+  text:{fontSize:15,fontWeight:'800',color:colors.text,textAlign:'center'}, primaryText:{color:'#fff'}, dangerText:{color:colors.danger}, pressed:{opacity:.78,transform:[{translateY:1}]}, disabled:{opacity:.45},
 });

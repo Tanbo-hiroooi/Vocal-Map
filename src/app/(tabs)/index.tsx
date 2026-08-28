@@ -1,9 +1,45 @@
-import { Button } from '@/components/common/Button'; import { confirmAction } from '@/components/common/confirmationDialog'; import { Screen } from '@/components/common/Screen'; import { colors,shadow } from '@/constants/theme'; import { useAppData } from '@/features/app/AppProvider'; import { useRouter } from 'expo-router'; import React from 'react'; import { Pressable,StyleSheet,Text,View } from 'react-native';
-export default function SongsScreen(){const {songs,deleteSong,loading,error}=useAppData();const router=useRouter();const remove=async(id:string,title:string)=>{if(await confirmAction('曲を削除しますか？',`「${title}」とすべての記号が削除されます。`,'削除',true))await deleteSong(id)};return <Screen>
-  <View style={styles.hero}><View style={{flex:1}}><Text style={styles.logo}>Vocal Map</Text><Text style={styles.tagline}>歌詞を、あなただけの歌唱設計図へ。</Text></View><Button label="＋ 新しい曲" onPress={()=>router.push('/songs/new')}/></View>
-  {!!error&&<Text accessibilityRole="alert" style={styles.error}>{error}</Text>}{loading?<Text>読み込み中…</Text>:songs.length===0?<View style={styles.empty}><Text style={styles.emptyIcon}>♬</Text><Text style={styles.emptyTitle}>まだ曲が登録されていません。</Text><Text style={styles.muted}>最初のVocal Mapを作成しましょう。</Text><Button label="曲を登録" onPress={()=>router.push('/songs/new')} variant="secondary"/></View>:<View style={styles.list}>{songs.map((song)=><View key={song.id} style={styles.card}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${song.title}を開く`} style={{flex:1,gap:4}} onPress={()=>router.push(`/songs/${song.id}/map`)}><Text numberOfLines={2} style={styles.songTitle}>{song.title}</Text><Text style={styles.artist}>{song.artist||'アーティスト未設定'}</Text><Text style={styles.date}>更新 {new Date(song.updatedAt).toLocaleDateString('ja-JP')}</Text></Pressable>
-    <View style={styles.actions}><Button label="開く" onPress={()=>router.push(`/songs/${song.id}/map`)} style={{flex:1}}/><Button label="編集" variant="secondary" onPress={()=>router.push(`/songs/${song.id}/edit`)} style={{flex:1}}/><Button label="削除" variant="danger" onPress={()=>void remove(song.id,song.title)}/></View>
-  </View>)}</View>}
-  </Screen>}
-const styles=StyleSheet.create({hero:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:16,paddingVertical:10},logo:{fontSize:34,fontWeight:'900',color:colors.text,letterSpacing:-1},tagline:{color:colors.muted,marginTop:4},error:{color:colors.danger},empty:{alignItems:'center',gap:12,padding:32,backgroundColor:colors.surface,borderRadius:20,...shadow},emptyIcon:{fontSize:42,color:colors.primary},emptyTitle:{fontSize:18,fontWeight:'800',color:colors.text},muted:{color:colors.muted},list:{gap:12},card:{backgroundColor:colors.surface,padding:18,borderRadius:16,gap:14,...shadow},songTitle:{fontSize:20,fontWeight:'800',color:colors.text},artist:{fontSize:15,color:colors.muted},date:{fontSize:12,color:colors.muted,marginTop:6},actions:{flexDirection:'row',flexWrap:'wrap',gap:8}});
+import { Button } from '@/components/common/Button';
+import { confirmAction } from '@/components/common/confirmationDialog';
+import { PageHeading } from '@/components/common/PageHeading';
+import { Screen } from '@/components/common/Screen';
+import { EmptySongs } from '@/components/songs/EmptySongs';
+import { SongCard } from '@/components/songs/SongCard';
+import { colors } from '@/constants/theme';
+import { useAppData } from '@/features/app/AppProvider';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+
+export default function SongsScreen() {
+  const { songs, deleteSong, loading, error } = useAppData();
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const createSong = () => router.push('/songs/new');
+  const remove = async (id: string, title: string) => {
+    if (await confirmAction('曲を削除しますか？', `「${title}」とすべての記号が削除されます。`, '削除', true)) await deleteSong(id);
+  };
+
+  return <Screen>
+    <PageHeading eyebrow="MY SONGS" title="マイソング" description="今日の歌い方を、書きとめよう。" action={songs.length > 0 ? <Button label="＋ 曲を登録" onPress={createSong} /> : undefined} />
+    <View style={styles.sectionRow}><View style={styles.sectionTitle}><Text style={styles.sectionLabel}>ソングリスト</Text><Text style={styles.count}>{songs.length} 曲</Text></View><Text style={styles.localBadge}>この端末に保存</Text></View>
+    {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+    {loading ? <View style={styles.loading}><ActivityIndicator color={colors.primary} /><Text style={styles.muted}>読み込み中…</Text></View>
+      : songs.length === 0 ? <EmptySongs onCreate={createSong} />
+        : <View style={styles.list}>{songs.map((song, index) => <SongCard key={song.id} song={song} index={index}
+          style={width >= 760 ? styles.wideCard : undefined}
+          onOpen={() => router.push(`/songs/${song.id}/map`)} onEdit={() => router.push(`/songs/${song.id}/edit`)} onDelete={() => void remove(song.id, song.title)} />)}</View>}
+  </Screen>;
+}
+
+const styles = StyleSheet.create({
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  sectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionLabel: { fontSize: 14, color: colors.text, fontWeight: '800' },
+  count: { color: colors.primaryDark, backgroundColor: colors.primarySoft, borderRadius: 8, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, fontWeight: '800' },
+  localBadge: { fontSize: 10, color: colors.success, fontWeight: '700' },
+  error: { color: colors.danger },
+  loading: { flexDirection: 'row', gap: 8, paddingVertical: 16 },
+  muted: { color: colors.muted },
+  list: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  wideCard: { flexBasis: '48%', flexGrow: 1, maxWidth: '50%' },
+});

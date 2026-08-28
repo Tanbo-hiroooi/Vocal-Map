@@ -1,13 +1,14 @@
 import { Platform } from 'react-native';
 
 export const colors = {
-  primary: '#6941C6', primaryDark: '#8B6DDB', primarySoft: '#F2ECFF',
-  background: '#F8F7FB', surface: '#FFFFFF', text: '#25232A', muted: '#706B78',
-  border: '#E5E1EA', danger: '#C83B4C', warning: '#9A6700', success: '#247A52',
+  primary: '#CD4434', primaryDark: '#A82F23', primarySoft: '#FFF0E9', primaryBorder: '#F0BAAC',
+  background: '#FFF9F0', surface: '#FFFFFF', text: '#243744', muted: '#64717C',
+  border: '#E6DFD3', danger: '#B52940', dangerSoft: '#FFF0F2', warning: '#875A06', success: '#176953',
+  mint: '#DCF3E9', sunshine: '#FFE7A0', lavender: '#E9E3FF', blue: '#DDE8FF',
 };
-export const layout = { maxWidth: 880, radius: 16, tapSize: 44 };
+export const layout = { maxWidth: 960, radius: 20, tapSize: 46, compactWidth: 640 };
 export const shadow = Platform.select({
-  ios: { shadowColor: '#241A38', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  ios: { shadowColor: '#243744', shadowOpacity: 0.06, shadowRadius: 0, shadowOffset: { width: 0, height: 4 } },
   android: { elevation: 2 },
-  default: { boxShadow: '0 4px 18px rgba(36,26,56,0.08)' },
+  default: { boxShadow: '0 4px 0 rgba(36,55,68,0.06)' },
 });

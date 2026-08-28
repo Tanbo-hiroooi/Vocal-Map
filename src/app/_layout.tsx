@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
-  return <SafeAreaProvider><AppProvider><StatusBar style="auto"/><Stack screenOptions={{headerTintColor:colors.primary,headerBackTitle:'戻る',contentStyle:{backgroundColor:colors.background}}}>
+  return <SafeAreaProvider><AppProvider><StatusBar style="dark"/><Stack screenOptions={{headerTintColor:colors.primaryDark,headerBackTitle:'戻る',headerStyle:{backgroundColor:colors.background},headerTitleStyle:{fontWeight:'800'},headerShadowVisible:false,contentStyle:{backgroundColor:colors.background}}}>
     <Stack.Screen name="(tabs)" options={{headerShown:false}}/>
     <Stack.Screen name="songs/new" options={{title:'新しい曲'}}/>
     <Stack.Screen name="songs/[id]/edit" options={{title:'曲を編集'}}/>
