@@ -1,7 +1,7 @@
 import { createPresetSymbols } from '@/constants/presetSymbols';
 import { AppData, AppSettings, SymbolDefinition } from '@/domain/models';
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, colorScheme: 'system' };
 export const createInitialData = (): AppData => ({ schemaVersion: CURRENT_SCHEMA_VERSION, songs: [], symbols: createPresetSymbols(), settings: defaultSettings });
 
@@ -24,6 +24,18 @@ function migratePresetSymbols(symbols: SymbolDefinition[]): SymbolDefinition[] {
   });
   const existingIds = new Set(upgraded.map((symbol) => symbol.id));
   return [...upgraded, ...defaults.filter((symbol) => !existingIds.has(symbol.id))];
+}
+
+function retireSmoothPreset(data: AppData): SymbolDefinition[] {
+  const referencedIds = new Set(data.songs.flatMap((song) => song.lyrics.flatMap((line) => line.annotations.map((annotation) => annotation.symbolId))));
+  return data.symbols.flatMap((symbol) => {
+    if (symbol.id !== 'preset-arrow-6' || !symbol.isPreset) return [symbol];
+    const unchanged = symbol.symbol === '～' && symbol.name === 'なめらかに'
+      && symbol.meaning === '音と言葉を滑らかにつなげる' && symbol.category === 'arrow'
+      && symbol.color === '#4B68D1' && !symbol.isFavorite && symbol.order === 6;
+    // 使用済み・編集済みの記号は、歌詞やユーザーの変更を失わないようカスタムとして保持する。
+    return referencedIds.has(symbol.id) || !unchanged ? [{ ...symbol, isPreset: false }] : [];
+  });
 }
 
 export function migrateData(input: AppData): AppData {
@@ -53,6 +65,9 @@ export function migrateData(input: AppData): AppData {
         })),
       })),
     };
+  }
+  if (data.schemaVersion < 4) {
+    data = { ...data, schemaVersion: 4, symbols: retireSmoothPreset(data) };
   }
   return data;
 }
