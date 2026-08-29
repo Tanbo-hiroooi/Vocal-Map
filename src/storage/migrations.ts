@@ -1,7 +1,7 @@
 import { createPresetSymbols } from '@/constants/presetSymbols';
 import { AppData, AppSettings, SymbolDefinition } from '@/domain/models';
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, colorScheme: 'system' };
 export const createInitialData = (): AppData => ({ schemaVersion: CURRENT_SCHEMA_VERSION, songs: [], symbols: createPresetSymbols(), settings: defaultSettings });
 
@@ -9,6 +9,11 @@ const legacyArticulations: Record<string, Pick<SymbolDefinition, 'symbol' | 'nam
   'preset-vocal-25': { symbol: 'Leg.', name: 'レガート', meaning: '音を滑らかにつなぐ' },
   'preset-vocal-26': { symbol: 'Stac.', name: 'スタッカート', meaning: '音を短く切る' },
   'preset-vocal-27': { symbol: 'Ten.', name: 'テヌート', meaning: '音の長さを保つ' },
+};
+
+const legacyDynamics: Record<string, Pick<SymbolDefinition, 'symbol' | 'name' | 'meaning'>> = {
+  'preset-dynamics-14': { symbol: 'cresc.', name: 'クレッシェンド', meaning: 'だんだん強く' },
+  'preset-dynamics-15': { symbol: 'decresc.', name: 'デクレッシェンド', meaning: 'だんだん弱く' },
 };
 
 function migratePresetSymbols(symbols: SymbolDefinition[]): SymbolDefinition[] {
@@ -35,6 +40,19 @@ function retireSmoothPreset(data: AppData): SymbolDefinition[] {
       && symbol.color === '#4B68D1' && !symbol.isFavorite && symbol.order === 6;
     // 使用済み・編集済みの記号は、歌詞やユーザーの変更を失わないようカスタムとして保持する。
     return referencedIds.has(symbol.id) || !unchanged ? [{ ...symbol, isPreset: false }] : [];
+  });
+}
+
+function migrateDynamics(symbols: SymbolDefinition[]): SymbolDefinition[] {
+  const defaults = new Map(createPresetSymbols().map((symbol) => [symbol.id, symbol]));
+  return symbols.map((symbol) => {
+    const legacy = legacyDynamics[symbol.id];
+    const replacement = defaults.get(symbol.id);
+    const stillUsesLegacyDefault = legacy && symbol.isPreset && symbol.symbol === legacy.symbol
+      && symbol.name === legacy.name && symbol.meaning === legacy.meaning;
+    return stillUsesLegacyDefault && replacement
+      ? { ...symbol, symbol: replacement.symbol, updatedAt: replacement.updatedAt }
+      : symbol;
   });
 }
 
@@ -68,6 +86,9 @@ export function migrateData(input: AppData): AppData {
   }
   if (data.schemaVersion < 4) {
     data = { ...data, schemaVersion: 4, symbols: retireSmoothPreset(data) };
+  }
+  if (data.schemaVersion < 5) {
+    data = { ...data, schemaVersion: 5, symbols: migrateDynamics(data.symbols) };
   }
   return data;
 }

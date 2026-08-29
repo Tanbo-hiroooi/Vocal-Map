@@ -10,7 +10,7 @@ const seeds: Seed[] = [
   ['preset-breath-8','’','短いブレス','短く素早く息を取る','breath'], ['preset-breath-9','○','深いブレス','しっかり息を吸う','breath'],
   ['preset-dynamics-10','p','ピアノ','弱く歌う','dynamics'], ['preset-dynamics-11','mp','メゾピアノ','やや弱く歌う','dynamics'],
   ['preset-dynamics-12','mf','メゾフォルテ','やや強く歌う','dynamics'], ['preset-dynamics-13','f','フォルテ','強く歌う','dynamics'],
-  ['preset-dynamics-14','cresc.','クレッシェンド','だんだん強く','dynamics'], ['preset-dynamics-15','decresc.','デクレッシェンド','だんだん弱く','dynamics'],
+  ['preset-dynamics-14','𝆒','クレッシェンド','だんだん強く','dynamics'], ['preset-dynamics-15','𝆓','デクレッシェンド','だんだん弱く','dynamics'],
   ['preset-vocal-16','息','息を流す','息を止めずに歌う','vocal'], ['preset-vocal-17','前','前に出す','声を前に飛ばす','vocal'],
   ['preset-vocal-18','上','上に抜く','高音を上方向に逃がす','vocal'], ['preset-vocal-19','抜','脱力','喉や体の力を抜く','vocal'],
   ['preset-vocal-20','話','話すように','歌いすぎず自然に言葉を出す','vocal'], ['preset-vocal-21','母','母音注意','母音の形に注意する','vocal'],

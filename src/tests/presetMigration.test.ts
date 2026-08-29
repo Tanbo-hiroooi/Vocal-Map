@@ -23,7 +23,7 @@ describe('重複する「なめらかに」プリセットの廃止', () => {
   });
 
   test('削除後も他のすべての記号IDを維持する', () => {
-    const legacyGlyphs = ['↑', '↓', '→', '↗', '↘', '⇢', '～', '／', '’', '○', 'p', 'mp', 'mf', 'f', 'cresc.', 'decresc.', '息', '前', '上', '抜', '話', '母', '喉×', 'Mix', 'Fal', '⌒', '•', '—', '★', '!', '笑', '泣', '優', '熱', '抑', '⤴', '⤵'];
+    const legacyGlyphs = ['↑', '↓', '→', '↗', '↘', '⇢', '～', '／', '’', '○', 'p', 'mp', 'mf', 'f', '𝆒', '𝆓', '息', '前', '上', '抜', '話', '母', '喉×', 'Mix', 'Fal', '⌒', '•', '—', '★', '!', '笑', '泣', '優', '熱', '抑', '⤴', '⤵'];
     const symbols = createPresetSymbols(date);
     expect(new Set(symbols.map((symbol) => symbol.id)).size).toBe(36);
     symbols.forEach((symbol) => expect(symbol.id).toBe(`preset-${symbol.category}-${legacyGlyphs.indexOf(symbol.symbol)}`));
@@ -72,5 +72,49 @@ describe('重複する「なめらかに」プリセットの廃止', () => {
     data.symbols = data.symbols.map((symbol) => symbol.id === legacySmooth.id ? { ...symbol, isPreset: false } : symbol);
     const migrated = migrateData(data);
     expect(migrated.symbols).toEqual(data.symbols);
+  });
+});
+
+describe('強弱記号の文字表記から音楽記号への移行', () => {
+  const withLegacyDynamics = (schemaVersion: number) => {
+    const data = createInitialData();
+    return {
+      ...data,
+      schemaVersion,
+      symbols: data.symbols.map((symbol) => symbol.id === 'preset-dynamics-14'
+        ? { ...symbol, symbol: 'cresc.' }
+        : symbol.id === 'preset-dynamics-15' ? { ...symbol, symbol: 'decresc.' } : symbol),
+    } as AppData;
+  };
+
+  test('初期データではUnicodeの音楽記号を使用する', () => {
+    const symbols = createPresetSymbols(date);
+    expect(symbols.find((symbol) => symbol.id === 'preset-dynamics-14')?.symbol).toBe('𝆒');
+    expect(symbols.find((symbol) => symbol.id === 'preset-dynamics-15')?.symbol).toBe('𝆓');
+  });
+
+  test.each([1, 2, 3, 4])('schema %iの文字表記を音楽記号へ移行する', (schemaVersion) => {
+    const data = withLegacyDynamics(schemaVersion);
+    const before = JSON.stringify(data);
+    const migrated = migrateData(data);
+    expect(migrated.symbols.find((symbol) => symbol.id === 'preset-dynamics-14')?.symbol).toBe('𝆒');
+    expect(migrated.symbols.find((symbol) => symbol.id === 'preset-dynamics-15')?.symbol).toBe('𝆓');
+    expect(JSON.stringify(data)).toBe(before);
+    expect(migrateData(migrated)).toEqual(migrated);
+  });
+
+  test('色やお気に入りなどの編集を維持したまま記号だけ更新する', () => {
+    const data = withLegacyDynamics(4);
+    data.symbols = data.symbols.map((symbol) => symbol.id === 'preset-dynamics-14'
+      ? { ...symbol, color: '#123456', isFavorite: true, order: 1 } : symbol);
+    expect(migrateData(data).symbols.find((symbol) => symbol.id === 'preset-dynamics-14')).toMatchObject({
+      symbol: '𝆒', color: '#123456', isFavorite: true, order: 1,
+    });
+  });
+
+  test('表示記号を独自に編集している場合は上書きしない', () => {
+    const data = withLegacyDynamics(4);
+    data.symbols = data.symbols.map((symbol) => symbol.id === 'preset-dynamics-14' ? { ...symbol, symbol: '強く→' } : symbol);
+    expect(migrateData(data).symbols.find((symbol) => symbol.id === 'preset-dynamics-14')?.symbol).toBe('強く→');
   });
 });
