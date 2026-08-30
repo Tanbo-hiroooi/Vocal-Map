@@ -21,9 +21,9 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
   const segments = createLyricSegments(line.text, line.annotations);
   const lineItems = line.annotations.filter((a) => a.targetType === 'line');
   const hasRangeMarkers = segments.some((segment) => segment.annotations.length > 0);
-  const lyricContent = <View style={styles.segments}>
+  const lyricContent = <View testID="lyric-segments" style={styles.segments}>
     {segments.length ? segments.map((segment, i) => {
-      return <View key={`${segment.start}-${i}`} style={styles.segment}>
+      return <View testID={`lyric-segment-${i}`} key={`${segment.start}-${i}`} style={styles.segment}>
         {hasRangeMarkers && <Markers items={segment.annotations} symbols={symbols} fontSize={fontSize} reserveSpace />}
         <LyricSegmentText text={segment.text} start={segment.start} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }]} />
       </View>;
@@ -34,9 +34,9 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
     {onPress ? <LyricSelectionSurface accessibilityLabel={line.text ? `歌詞「${line.text}」を選択` : '空行を選択'} textLength={line.text.length} onPress={onPress} onRangeSelect={onRangeSelect}>{lyricContent}</LyricSelectionSurface> : lyricContent}
     {line.annotations.filter((a) => a.memo).map((a) => <Text key={`memo-${a.id}`} style={styles.memo}>・{a.memo}</Text>)}
   </>;
-  return <View style={[styles.container, !line.text && styles.blank]}>
+  return <View testID="vocal-line" style={[styles.container, !line.text && styles.blank]}>
     {content}
     {editing && <View style={styles.editRow}><Button label="＋ 記号追加" variant="secondary" onPress={() => onAdd?.()} />{line.annotations.map((a) => <Button key={a.id} label={`${marker(a, symbols)}を削除`} variant="ghost" onPress={() => onDelete?.(a.id)} />)}</View>}
   </View>;
 }
-const styles = StyleSheet.create({ container: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, gap: 5, borderWidth: 1, borderColor: colors.border }, blank: { minHeight: 52, backgroundColor: 'transparent', borderColor: 'transparent' }, segments: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', minWidth: 0 }, segment: { flexShrink: 1, justifyContent: 'flex-end' }, lyric: { color: colors.text, fontWeight: '600', flexShrink: 1 }, markers: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 5, minHeight: 15, overflow: 'hidden', userSelect: 'none' }, marker: { fontWeight: '900', flexShrink: 1 }, memo: { color: colors.muted, fontSize: 13 }, editRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.border } });
+const styles = StyleSheet.create({ container: { width: '100%', minWidth: 0, paddingHorizontal: 2, paddingVertical: 4, gap: 4 }, blank: { minHeight: 44 }, segments: { width: '100%', maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', minWidth: 0 }, segment: { maxWidth: '100%', minWidth: 0, flexShrink: 1, justifyContent: 'flex-end' }, lyric: { maxWidth: '100%', minWidth: 0, color: colors.text, fontWeight: '600', flexShrink: 1 }, markers: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 5, minHeight: 15, overflow: 'hidden', userSelect: 'none' }, marker: { fontWeight: '900', flexShrink: 1 }, memo: { color: colors.muted, fontSize: 13 }, editRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.border } });

@@ -37,6 +37,18 @@ describe('主要コンポーネント', () => {
   test('語句ごとに同じ高さの記号レーンを確保する', async () => {
     const symbols = createPresetSymbols(); const annotated: LyricLine = { ...line, annotations: [{ id: 'a', symbolId: symbols[0].id, position: 'below', targetType: 'range', range: { start: 2, end: 6 }, targetTextSnapshot: '伝えたい', status: 'valid', createdAt: '', updatedAt: '' }] }; const view = await render(<VocalLine line={annotated} symbols={symbols} editing={false} />); expect(view.getAllByTestId('range-marker-lane')).toHaveLength(2); expect(view.getByText(symbols[0].symbol)).toBeTruthy(); expect(StyleSheet.flatten(view.getByText('伝えたい').props.style)?.backgroundColor).toBeUndefined();
   });
+  test('歌詞の枠を表示せず長い行を画面幅内で折り返せる', async () => {
+    const longLine: LyricLine = { ...line, text: '空白のない長い日本語歌詞'.repeat(12) };
+    const view = await render(<VocalLine line={longLine} symbols={[]} editing={false} />);
+    const containerStyle = StyleSheet.flatten(view.getByTestId('vocal-line').props.style);
+    const segmentsStyle = StyleSheet.flatten(view.getByTestId('lyric-segments').props.style);
+    const segmentStyle = StyleSheet.flatten(view.getByTestId('lyric-segment-0').props.style);
+
+    expect(containerStyle.backgroundColor).toBeUndefined();
+    expect(containerStyle.borderWidth).toBeUndefined();
+    expect(segmentsStyle).toMatchObject({ width: '100%', maxWidth: '100%', flexWrap: 'wrap' });
+    expect(segmentStyle).toMatchObject({ maxWidth: '100%', minWidth: 0, flexShrink: 1 });
+  });
   test('統合画面では歌詞タップで編集を開ける', async () => {
     const select = jest.fn(); const view = await render(<VocalLine line={line} symbols={[]} editing={false} onPress={select} />); expect(view.queryByText('＋ 記号追加')).toBeNull(); await fireEvent.press(view.getByRole('button', { name: '歌詞「君に伝えたい」を選択' })); expect(select).toHaveBeenCalled();
   });

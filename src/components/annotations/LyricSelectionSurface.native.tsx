@@ -11,6 +11,6 @@ export function LyricSegmentText({ text, style }: { text: string; start: number;
 }
 
 const styles = StyleSheet.create({
-  surface: { minHeight: 44, justifyContent: 'center' },
+  surface: { width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 44, alignSelf: 'stretch', justifyContent: 'center' },
   pressed: { opacity: .7 },
 });

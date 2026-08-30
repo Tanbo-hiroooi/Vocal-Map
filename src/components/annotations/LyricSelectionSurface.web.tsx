@@ -89,7 +89,7 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
 
 export function LyricSegmentText({ text, start, style }: { text: string; start: number; style: StyleProp<TextStyle> }) {
   const WebText = Text as unknown as React.ComponentType<React.ComponentProps<typeof Text> & { dataSet: Record<string, string> }>;
-  return <WebText selectable dataSet={{ vocalStart: String(start) }} style={[style, styles.lyricText]}>{text}</WebText>;
+  return <WebText selectable dataSet={{ vocalStart: String(start) }} style={[style, styles.lyricText, webLyricTextStyle as TextStyle]}>{text}</WebText>;
 }
 
 const styles = StyleSheet.create({
@@ -97,9 +97,22 @@ const styles = StyleSheet.create({
 });
 
 const webSurfaceStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
   minHeight: 44,
   display: 'flex',
   justifyContent: 'center',
   cursor: 'text',
   userSelect: 'text',
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word',
+};
+
+const webLyricTextStyle: React.CSSProperties = {
+  maxWidth: '100%',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word',
+  whiteSpace: 'pre-wrap',
 };
