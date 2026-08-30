@@ -49,7 +49,7 @@ export default function MapScreen() {
   };
 
   return <Screen contentStyle={styles.screen}>
-    <View style={styles.header}><View style={styles.heading}><Text style={styles.title}>{song.title}</Text><Text style={styles.artist}>{song.artist || 'アーティスト未設定'}</Text></View><Button label="曲情報を編集" variant="secondary" onPress={() => router.push(`/songs/${song.id}/edit`)} /></View>
+    <View style={styles.header}><View style={styles.heading}><Text style={styles.title}>{song.title}</Text><Text style={styles.artist}>{song.artist || 'アーティスト未設定'}</Text></View><View style={styles.headerActions}><Button label="← 曲一覧へ" variant="ghost" onPress={() => router.dismissTo('/')} accessibilityLabel="曲一覧へ戻る"/><Button label="曲情報を編集" variant="secondary" onPress={() => router.push(`/songs/${song.id}/edit`)} /></View></View>
     {song.memo && <Text style={styles.songMemo}>{song.memo}</Text>}
     <View style={styles.guide}><Text style={styles.guideTitle}>歌詞を選択して記号を追加</Text><Text style={styles.guideText}>PCでは歌詞の変更したい部分をドラッグすると、記号追加画面が開きます。iPhoneでは歌詞行をタップし、対象語句の先頭と末尾を選択してください。</Text></View>
     <View style={styles.controls}>
@@ -65,6 +65,7 @@ const styles = StyleSheet.create({
   screen: { maxWidth: 760 },
   header: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' },
   heading: { flex: 1, minWidth: 180 },
+  headerActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   title: { fontSize: 28, fontWeight: '900', color: colors.text },
   artist: { color: colors.muted, marginTop: 4 },
   songMemo: { backgroundColor: colors.primarySoft, padding: 12, borderRadius: 12, color: colors.text },
