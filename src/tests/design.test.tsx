@@ -33,6 +33,17 @@ describe('ポップなUIの基本操作', () => {
     expect(view.queryByText('最初の曲を作る')).toBeNull();
   });
 
+  test('スマホ幅では空状態の説明欄が内容に合わせて高さを確保する', async () => {
+    const dimensions = { width: 390, height: 667, scale: 1, fontScale: 1 };
+    await act(async () => ReactNative.Dimensions.set({ window: dimensions, screen: dimensions }));
+    const view = await render(<EmptySongs onCreate={jest.fn()} />);
+    const copyStyle = ReactNative.StyleSheet.flatten(view.getByTestId('empty-songs-copy').props.style);
+
+    expect(copyStyle.flexBasis).toBe('auto');
+    expect(copyStyle.flexShrink).toBe(0);
+    expect(view.getByRole('button', { name: '曲を登録' })).toBeTruthy();
+  });
+
   test('曲カードに曲の情報を表示し、既存の操作を維持する', async () => {
     const song: Song = { id: 'song-1', title: '練習用の曲', artist: '自分', lyrics: [], createdAt: '2026-08-27T00:00:00.000Z', updatedAt: '2026-08-27T00:00:00.000Z' };
     const onOpen = jest.fn(); const onEdit = jest.fn(); const onDelete = jest.fn();

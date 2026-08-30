@@ -6,14 +6,14 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 export function EmptySongs({ onCreate }: { onCreate(): void }) {
   const { width } = useWindowDimensions();
   const compact = width < layout.compactWidth;
-  return <View style={styles.card}>
+  return <View testID="empty-songs-card" style={styles.card}>
     <View style={[styles.intro, compact && styles.introCompact]}>
-      <View style={[styles.copy, compact && styles.copyCompact]}>
+      <View testID="empty-songs-copy" style={[styles.copy, compact && styles.copyCompact]}>
         <Text style={styles.title}>歌詞に、あなたの歌い方を。</Text>
         <Text style={styles.description}>まだ曲が登録されていません。{'\n'}歌詞を貼り付けて、最初のVocal Mapを作ろう。</Text>
         <Button label="曲を登録" onPress={onCreate} style={styles.action} />
       </View>
-      <View style={[styles.sketch, compact && styles.sketchCompact]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View testID="empty-songs-sketch" style={[styles.sketch, compact && styles.sketchCompact]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <Text style={styles.sketchLabel}>MY SINGING NOTE</Text>
         <View style={styles.markers}>
           <Text style={[styles.marker, { backgroundColor: colors.mint, transform: [{ rotate: '-8deg' }] }]}>↑</Text>
@@ -24,7 +24,7 @@ export function EmptySongs({ onCreate }: { onCreate(): void }) {
         <Text style={styles.sketchMemo}>上にひびかせて、やさしく。</Text>
       </View>
     </View>
-    <View style={styles.steps}>
+    <View testID="empty-songs-steps" style={styles.steps}>
       {[
         { number: '1', title: '曲を登録', color: colors.primarySoft },
         { number: '2', title: '記号をのせる', color: colors.mint },
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   intro: { flexDirection: 'row', alignItems: 'center', gap: 20, padding: 22 },
   introCompact: { flexDirection: 'column-reverse', alignItems: 'stretch', padding: 16, gap: 16 },
   copy: { flex: 1, minWidth: 0, gap: 10 },
-  copyCompact: { flex: 0, width: '100%' },
+  copyCompact: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: '100%' },
   title: { fontSize: 23, lineHeight: 32, fontWeight: '900', color: colors.text, letterSpacing: -0.6 },
   description: { fontSize: 13, lineHeight: 21, color: colors.muted },
   action: { alignSelf: 'flex-start', minWidth: 150, marginTop: 3 },
