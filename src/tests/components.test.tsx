@@ -4,7 +4,7 @@ import { SymbolEditor } from '@/components/symbols/SymbolEditor';
 import { createPresetSymbols } from '@/constants/presetSymbols';
 import { LyricLine, Song } from '@/domain/models';
 import { SongForm } from '@/features/songs/SongForm';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -19,6 +19,12 @@ describe('主要コンポーネント', () => {
     const save = jest.fn(async (_song: Song) => {}); const view = await render(<SongForm onSave={save} />);
     await fireEvent.changeText(view.getByPlaceholderText('例：練習曲'), '新しい曲'); await fireEvent.changeText(view.getByPlaceholderText('歌詞を入力または貼り付け'), '一行目\n二行目'); await fireEvent.press(view.getByText('保存する'));
     await waitFor(() => expect(save).toHaveBeenCalled()); expect(save.mock.calls[0][0].lyrics).toHaveLength(2);
+  });
+  test('曲フォームは入力欄だけをスクロールし、保存ボタンを固定領域に表示する', async () => {
+    const view = await render(<SongForm onSave={async () => {}} />);
+    expect(view.getByTestId('song-form-scroll')).toBeTruthy();
+    expect(within(view.getByTestId('song-form-actions')).getByRole('button', { name: '保存する' })).toBeTruthy();
+    expect(within(view.getByTestId('song-form-scroll')).queryByRole('button', { name: '保存する' })).toBeNull();
   });
   test('選択した語句へ記号を追加できる', async () => {
     const save = jest.fn(); const symbols = createPresetSymbols(); const view = await render(<AnnotationEditor visible line={line} symbols={symbols} onClose={() => {}} onSave={save} />);
