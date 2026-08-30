@@ -43,6 +43,7 @@ export type SymbolDefinition = {
 export type AppSettings = {
   defaultFontSize: number;
   practiceFontSize: number;
+  lyricLineSpacing: number;
   colorScheme: 'system' | 'light' | 'dark';
 };
 export type AppData = {

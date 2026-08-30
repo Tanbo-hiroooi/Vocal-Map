@@ -3,7 +3,8 @@ export default function SettingsScreen(){
   const {settings,saveSettings,refresh}=useAppData();
   const {width}=useWindowDimensions();
   const [message,setMessage]=useState('');
-  const change=(key:'defaultFontSize'|'practiceFontSize',delta:number)=>void saveSettings({...settings,[key]:Math.max(14,Math.min(44,settings[key]+delta))});
+  const changeFont=(key:'defaultFontSize'|'practiceFontSize',delta:number)=>void saveSettings({...settings,[key]:Math.max(14,Math.min(44,settings[key]+delta))});
+  const changeLineSpacing=(delta:number)=>void saveSettings({...settings,lyricLineSpacing:Math.max(0,Math.min(24,settings.lyricLineSpacing+delta))});
   const exportData=async()=>{try{const data=await vocalMapRepository.exportData();await exportJsonFile(JSON.stringify(data,null,2));setMessage('バックアップを書き出しました。')}catch(e){setMessage(e instanceof Error?e.message:'エクスポートに失敗しました。')}};
   const importData=async()=>{try{
     const json=await pickJsonFile();if(!json)return;
@@ -20,9 +21,10 @@ export default function SettingsScreen(){
     {!!message&&<Text accessibilityRole="alert" style={styles.message}>{message}</Text>}
     <View style={styles.grid}>
       <View style={[styles.card,width>=760&&styles.wideCard]}>
-        <SectionLabel icon="Aa" title="文字サイズ" color={colors.lavender}/>
-        <SettingStepper label="編集画面" value={settings.defaultFontSize} onMinus={()=>change('defaultFontSize',-1)} onPlus={()=>change('defaultFontSize',1)}/>
-        <SettingStepper label="練習モード" value={settings.practiceFontSize} onMinus={()=>change('practiceFontSize',-2)} onPlus={()=>change('practiceFontSize',2)}/>
+        <SectionLabel icon="Aa" title="歌詞の見やすさ" color={colors.lavender}/>
+        <SettingStepper label="編集画面の文字" value={settings.defaultFontSize} onMinus={()=>changeFont('defaultFontSize',-1)} onPlus={()=>changeFont('defaultFontSize',1)} decreaseLabel="編集画面の文字を小さくする" increaseLabel="編集画面の文字を大きくする"/>
+        <SettingStepper label="歌詞画面の文字" value={settings.practiceFontSize} onMinus={()=>changeFont('practiceFontSize',-2)} onPlus={()=>changeFont('practiceFontSize',2)} decreaseLabel="歌詞画面の文字を小さくする" increaseLabel="歌詞画面の文字を大きくする"/>
+        <SettingStepper label="歌詞の行間" value={settings.lyricLineSpacing} onMinus={()=>changeLineSpacing(-2)} onPlus={()=>changeLineSpacing(2)} decreaseLabel="歌詞の行間を狭くする" increaseLabel="歌詞の行間を広くする"/>
       </View>
       <View style={[styles.card,width>=760&&styles.wideCard]}>
         <SectionLabel icon="↥" title="バックアップ" color={colors.mint}/>
@@ -43,5 +45,5 @@ export default function SettingsScreen(){
   </Screen>
 }
 function SectionLabel({icon,title,color}:{icon:string;title:string;color:string}){return <View style={styles.sectionRow}><Text aria-hidden style={[styles.sectionIcon,{backgroundColor:color}]}>{icon}</Text><Text style={styles.section}>{title}</Text></View>}
-function SettingStepper({label,value,onMinus,onPlus}:{label:string;value:number;onMinus():void;onPlus():void}){return <View style={styles.stepper}><Text style={styles.settingLabel}>{label}</Text><Button label="−" variant="ghost" onPress={onMinus} accessibilityLabel={`${label}の文字を小さくする`}/><Text style={styles.value}>{value}px</Text><Button label="＋" variant="ghost" onPress={onPlus} accessibilityLabel={`${label}の文字を大きくする`}/></View>}
+function SettingStepper({label,value,onMinus,onPlus,decreaseLabel,increaseLabel}:{label:string;value:number;onMinus():void;onPlus():void;decreaseLabel:string;increaseLabel:string}){return <View style={styles.stepper}><Text style={styles.settingLabel}>{label}</Text><Button label="−" variant="ghost" onPress={onMinus} accessibilityLabel={decreaseLabel}/><Text style={styles.value}>{value}px</Text><Button label="＋" variant="ghost" onPress={onPlus} accessibilityLabel={increaseLabel}/></View>}
 const styles=StyleSheet.create({message:{color:colors.primaryDark,backgroundColor:colors.primarySoft,padding:12,borderRadius:12},grid:{flexDirection:'row',flexWrap:'wrap',gap:12},card:{width:'100%',minWidth:0,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:20,padding:16,gap:12,...shadow},wideCard:{flexBasis:'48%',flexGrow:1,maxWidth:'50%'},sectionRow:{flexDirection:'row',alignItems:'center',gap:10},sectionIcon:{width:34,height:34,lineHeight:34,textAlign:'center',borderRadius:10,overflow:'hidden',fontSize:20,fontWeight:'800',color:colors.text},section:{fontSize:18,fontWeight:'900',color:colors.text},help:{fontSize:13,color:colors.muted,lineHeight:21},stepper:{flexDirection:'row',alignItems:'center',gap:6,minHeight:46},settingLabel:{flex:1,color:colors.text,fontSize:13,fontWeight:'700'},value:{minWidth:44,textAlign:'center',fontWeight:'800',color:colors.primaryDark},version:{marginTop:4,fontSize:11,color:colors.muted}});

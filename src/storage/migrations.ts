@@ -1,8 +1,8 @@
 import { createPresetSymbols } from '@/constants/presetSymbols';
 import { AppData, AppSettings, SymbolDefinition } from '@/domain/models';
 
-export const CURRENT_SCHEMA_VERSION = 5;
-export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, colorScheme: 'system' };
+export const CURRENT_SCHEMA_VERSION = 6;
+export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, lyricLineSpacing: 6, colorScheme: 'system' };
 export const createInitialData = (): AppData => ({ schemaVersion: CURRENT_SCHEMA_VERSION, songs: [], symbols: createPresetSymbols(), settings: defaultSettings });
 
 const legacyArticulations: Record<string, Pick<SymbolDefinition, 'symbol' | 'name' | 'meaning'>> = {
@@ -89,6 +89,9 @@ export function migrateData(input: AppData): AppData {
   }
   if (data.schemaVersion < 5) {
     data = { ...data, schemaVersion: 5, symbols: migrateDynamics(data.symbols) };
+  }
+  if (data.schemaVersion < 6) {
+    data = { ...data, schemaVersion: 6, settings: { ...defaultSettings, ...data.settings } };
   }
   return data;
 }

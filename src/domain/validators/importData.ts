@@ -8,7 +8,8 @@ export function validateImportData(input: unknown): ValidationResult {
   if (!Array.isArray(data.songs) || !Array.isArray(data.symbols) || !data.settings) return { valid: false, message: '曲、記号、設定の必須データがありません。' };
   const songsValid = data.songs.every((song) => song && typeof song.id === 'string' && typeof song.title === 'string' && Array.isArray(song.lyrics));
   const symbolsValid = data.symbols.every((symbol) => symbol && typeof symbol.id === 'string' && typeof symbol.symbol === 'string' && typeof symbol.name === 'string');
-  if (!songsValid || !symbolsValid || typeof data.settings.defaultFontSize !== 'number') return { valid: false, message: 'データ形式が壊れているため読み込めません。' };
+  const spacingValid = data.schemaVersion < 6 || typeof data.settings.lyricLineSpacing === 'number';
+  if (!songsValid || !symbolsValid || typeof data.settings.defaultFontSize !== 'number' || typeof data.settings.practiceFontSize !== 'number' || !spacingValid) return { valid: false, message: 'データ形式が壊れているため読み込めません。' };
   return { valid: true, data: data as AppData };
 }
 
