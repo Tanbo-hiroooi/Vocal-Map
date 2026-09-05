@@ -1,13 +1,19 @@
 export type AnnotationPosition = 'above' | 'below' | 'before' | 'after' | 'inline' | 'line-note';
 export type SymbolCategory = 'arrow' | 'breath' | 'dynamics' | 'vocal' | 'expression' | 'custom';
 export type TextRange = { start: number; end: number };
+export type TextBoundary = {
+  index: number;
+  beforeTextSnapshot: string;
+  afterTextSnapshot: string;
+};
 
 export type Annotation = {
   id: string;
   symbolId: string;
   position: AnnotationPosition;
-  targetType: 'line' | 'range';
+  targetType: 'line' | 'range' | 'boundary';
   range?: TextRange;
+  boundary?: TextBoundary;
   targetTextSnapshot?: string;
   customText?: string;
   memo?: string;

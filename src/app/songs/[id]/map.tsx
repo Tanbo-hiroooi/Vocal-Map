@@ -51,7 +51,7 @@ export default function MapScreen() {
   return <Screen contentStyle={styles.screen}>
     <View style={styles.header}><View style={styles.heading}><Text style={styles.title}>{song.title}</Text><Text style={styles.artist}>{song.artist || 'アーティスト未設定'}</Text></View><View style={styles.headerActions}><Button label="← 曲一覧へ" variant="ghost" onPress={() => router.dismissTo('/')} accessibilityLabel="曲一覧へ戻る"/><Button label="曲情報を編集" variant="secondary" onPress={() => router.push(`/songs/${song.id}/edit`)} /></View></View>
     {song.memo && <Text style={styles.songMemo}>{song.memo}</Text>}
-    <View style={styles.guide}><Text style={styles.guideTitle}>歌詞を選択して記号を追加</Text><Text style={styles.guideText}>PCでは歌詞の変更したい部分をドラッグすると、記号追加画面が開きます。iPhoneでは歌詞行をタップし、対象語句の先頭と末尾を選択してください。</Text></View>
+    <View style={styles.guide}><Text style={styles.guideTitle}>歌詞を選択して記号を追加</Text><Text style={styles.guideText}>PCでは歌詞をドラッグ、iPhoneでは歌詞行をタップします。ポップアップで「文字の間（ブレス）」を選ぶと、言葉と言葉の間にも記号を置けます。</Text></View>
     <View style={styles.controls}>
       <View style={styles.controlGroup}><Text style={styles.controlLabel}>文字サイズ</Text><Button label="小さく" variant="ghost" onPress={() => setFontSize(Math.max(20, fontSize - 2))} accessibilityLabel="歌詞の文字を小さくする"/><Text style={styles.size}>{fontSize}</Text><Button label="大きく" variant="ghost" onPress={() => setFontSize(Math.min(42, fontSize + 2))} accessibilityLabel="歌詞の文字を大きくする"/></View>
       <View style={styles.controlGroup}><Text style={styles.controlLabel}>行間</Text><Button label="狭く" variant="ghost" onPress={() => changeLineSpacing(-2)} accessibilityLabel="歌詞の行間を狭くする"/><Text style={styles.size}>{lineSpacing}</Text><Button label="広く" variant="ghost" onPress={() => changeLineSpacing(2)} accessibilityLabel="歌詞の行間を広くする"/></View>

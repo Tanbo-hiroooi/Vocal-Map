@@ -34,8 +34,27 @@ describe('主要コンポーネント', () => {
     const save = jest.fn(); const view = await render(<AnnotationEditor visible line={line} symbols={createPresetSymbols()} initialRange={{ start: 2, end: 6 }} onClose={() => {}} onSave={save} />);
     expect(view.getByText(/選択中：.*伝えたい/)).toBeTruthy(); await fireEvent.press(view.getByText('この記号を追加')); expect(save.mock.calls[0][0].range).toEqual({ start: 2, end: 6 }); expect(save.mock.calls[0][0].targetTextSnapshot).toBe('伝えたい');
   });
+  test('文字と文字の間へブレス記号を追加できる', async () => {
+    const save = jest.fn(); const symbols = createPresetSymbols(); const view = await render(<AnnotationEditor visible line={line} symbols={symbols} onClose={() => {}} onSave={save} />);
+    await fireEvent.press(view.getByText('文字の間（ブレス）'));
+    await fireEvent.press(view.getByLabelText('「に」と「伝」の間'));
+    await fireEvent.press(view.getByLabelText('ブレス、ここで息を吸う'));
+    await fireEvent.press(view.getByText('この記号を追加'));
+    expect(save).toHaveBeenCalled();
+    expect(save.mock.calls[0][0]).toMatchObject({ targetType: 'boundary', position: 'inline', boundary: { index: 2 } });
+  });
   test('語句ごとに同じ高さの記号レーンを確保する', async () => {
     const symbols = createPresetSymbols(); const annotated: LyricLine = { ...line, annotations: [{ id: 'a', symbolId: symbols[0].id, position: 'below', targetType: 'range', range: { start: 2, end: 6 }, targetTextSnapshot: '伝えたい', status: 'valid', createdAt: '', updatedAt: '' }] }; const view = await render(<VocalLine line={annotated} symbols={symbols} editing={false} />); expect(view.getAllByTestId('range-marker-lane')).toHaveLength(2); expect(view.getByText(symbols[0].symbol)).toBeTruthy(); expect(StyleSheet.flatten(view.getByText('伝えたい').props.style)?.backgroundColor).toBeUndefined();
+  });
+  test('ブレス記号を歌詞上ではなく文字の間へ表示する', async () => {
+    const symbols = createPresetSymbols(); const breath = symbols.find((symbol) => symbol.name === 'ブレス')!;
+    const annotated: LyricLine = { ...line, annotations: [{ id: 'breath', symbolId: breath.id, position: 'inline', targetType: 'boundary', boundary: { index: 2, beforeTextSnapshot: '君に', afterTextSnapshot: '伝えたい' }, status: 'valid', createdAt: '', updatedAt: '' }] };
+    const view = await render(<VocalLine line={annotated} symbols={symbols} editing={false} />);
+    expect(view.getByTestId('boundary-marker')).toBeTruthy();
+    expect(view.getByText('君に')).toBeTruthy();
+    expect(view.getByText('伝えたい')).toBeTruthy();
+    expect(view.getByLabelText('ブレス、文字の間')).toBeTruthy();
+    expect(view.queryByTestId('range-marker-lane')).toBeNull();
   });
   test('歌詞の枠を表示せず長い行を画面幅内で折り返せる', async () => {
     const longLine: LyricLine = { ...line, text: '空白のない長い日本語歌詞'.repeat(12) };

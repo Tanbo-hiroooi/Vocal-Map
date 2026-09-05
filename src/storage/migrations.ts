@@ -1,7 +1,7 @@
 import { createPresetSymbols } from '@/constants/presetSymbols';
 import { AppData, AppSettings, SymbolDefinition } from '@/domain/models';
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, lyricLineSpacing: 6, colorScheme: 'system' };
 export const createInitialData = (): AppData => ({ schemaVersion: CURRENT_SCHEMA_VERSION, songs: [], symbols: createPresetSymbols(), settings: defaultSettings });
 
@@ -92,6 +92,9 @@ export function migrateData(input: AppData): AppData {
   }
   if (data.schemaVersion < 6) {
     data = { ...data, schemaVersion: 6, settings: { ...defaultSettings, ...data.settings } };
+  }
+  if (data.schemaVersion < 7) {
+    data = { ...data, schemaVersion: 7 };
   }
   return data;
 }

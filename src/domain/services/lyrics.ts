@@ -1,4 +1,4 @@
-import { Annotation, LyricLine, Song, TextRange } from '@/domain/models';
+import { Annotation, LyricLine, Song, TextBoundary, TextRange } from '@/domain/models';
 import { createId, nowIso } from '@/utils/id';
 
 export function splitLyrics(text: string): LyricLine[] {
@@ -26,24 +26,78 @@ export function hasOverlappingRange(annotations: Annotation[], range: TextRange,
   return annotations.some((item) => item.id !== exceptId && item.targetType === 'range' && item.range && rangesOverlap(item.range, range));
 }
 
-export type LyricSegment = { text: string; start: number; end: number; annotations: Annotation[] };
+const BOUNDARY_CONTEXT_LENGTH = 6;
+
+function characterBoundaries(text: string): number[] {
+  const boundaries = [0];
+  let offset = 0;
+  Array.from(text).forEach((character) => {
+    offset += character.length;
+    boundaries.push(offset);
+  });
+  return boundaries;
+}
+
+export function createTextBoundary(text: string, index: number): TextBoundary | undefined {
+  if (!characterBoundaries(text).includes(index)) return undefined;
+  return {
+    index,
+    beforeTextSnapshot: Array.from(text.slice(0, index)).slice(-BOUNDARY_CONTEXT_LENGTH).join(''),
+    afterTextSnapshot: Array.from(text.slice(index)).slice(0, BOUNDARY_CONTEXT_LENGTH).join(''),
+  };
+}
+
+export function findTextBoundaryIndices(text: string, boundary: TextBoundary): number[] {
+  return characterBoundaries(text).filter((index) => {
+    const before = text.slice(0, index);
+    const after = text.slice(index);
+    return before.endsWith(boundary.beforeTextSnapshot) && after.startsWith(boundary.afterTextSnapshot);
+  });
+}
+
+export type LyricSegment = {
+  text: string;
+  start: number;
+  end: number;
+  annotations: Annotation[];
+  boundaryAnnotations: Annotation[];
+};
 export function createLyricSegments(text: string, annotations: Annotation[]): LyricSegment[] {
   const ranged = annotations
     .filter((a): a is Annotation & { range: TextRange } => a.targetType === 'range' && !!a.range && a.range.start >= 0 && a.range.end <= text.length)
     .sort((a, b) => a.range.start - b.range.start);
+  const atBoundaries = annotations
+    .filter((a): a is Annotation & { boundary: TextBoundary } => a.targetType === 'boundary' && !!a.boundary && characterBoundaries(text).includes(a.boundary.index));
   const boundaries = new Set([0, text.length]);
   ranged.forEach((a) => { boundaries.add(a.range.start); boundaries.add(a.range.end); });
+  atBoundaries.forEach((a) => boundaries.add(a.boundary.index));
   const points = [...boundaries].sort((a, b) => a - b);
-  return points.slice(0, -1).map((start, index) => {
+  const segments = points.slice(0, -1).map((start, index) => {
     const end = points[index + 1];
-    return { text: text.slice(start, end), start, end, annotations: ranged.filter((a) => a.range.start === start && a.range.end === end) };
+    return {
+      text: text.slice(start, end),
+      start,
+      end,
+      annotations: ranged.filter((a) => a.range.start === start),
+      boundaryAnnotations: atBoundaries.filter((a) => a.boundary.index === start),
+    };
   });
+  const trailing = atBoundaries.filter((a) => a.boundary.index === text.length);
+  if (trailing.length && text.length > 0) segments.push({ text: '', start: text.length, end: text.length, annotations: [], boundaryAnnotations: trailing });
+  return segments;
 }
 
 function reconcileAnnotations(oldLine: LyricLine, newText: string): Annotation[] {
   if (oldLine.text === newText) return oldLine.annotations;
   return oldLine.annotations.map((annotation) => {
     if (annotation.targetType === 'line') return { ...annotation, updatedAt: nowIso() };
+    if (annotation.targetType === 'boundary') {
+      const matches = annotation.boundary ? findTextBoundaryIndices(newText, annotation.boundary) : [];
+      const boundary = matches.length === 1 ? createTextBoundary(newText, matches[0]) : undefined;
+      return boundary
+        ? { ...annotation, boundary, status: 'valid' as const, updatedAt: nowIso() }
+        : { ...annotation, status: 'needs-review' as const, updatedAt: nowIso() };
+    }
     const snapshot = annotation.targetTextSnapshot;
     const matches = snapshot ? findTextRanges(newText, snapshot) : [];
     if (matches.length === 1) return { ...annotation, range: matches[0], status: 'valid' as const, updatedAt: nowIso() };
