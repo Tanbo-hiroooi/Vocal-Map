@@ -8,12 +8,15 @@ import { createId, nowIso } from '@/utils/id';
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { HighlightPicker } from './HighlightPicker';
 
-const annotationMarker = (annotation: Annotation, symbols: SymbolDefinition[]) => annotation.customText || symbols.find((symbol) => symbol.id === annotation.symbolId)?.symbol || '？';
+const annotationMarker = (annotation: Annotation, symbols: SymbolDefinition[]) => annotation.highlight ? `${annotation.highlight.label}の色分け` : annotation.customText || symbols.find((symbol) => symbol.id === annotation.symbolId)?.symbol || '？';
 type TargetType = Annotation['targetType'];
 
 export function AnnotationEditor({ visible, line, symbols, initialRange, onClose, onSave, onDelete }: { visible: boolean; line: LyricLine; symbols: SymbolDefinition[]; initialRange?: TextRange; onClose(): void; onSave(annotation: Annotation): void; onDelete?(id: string): void }) {
   const [symbolId, setSymbolId] = useState(symbols.find((symbol) => symbol.isFavorite)?.id ?? symbols[0]?.id ?? '');
+  const [mode, setMode] = useState<'symbol' | 'highlight'>('symbol');
+  const [highlight, setHighlight] = useState({ label: '裏声', color: '#E9E3FF' });
   const [targetType, setTargetType] = useState<TargetType>(initialRange || line.text ? 'range' : 'line');
   const [query, setQuery] = useState(initialRange ? line.text.slice(initialRange.start, initialRange.end) : '');
   const [occurrence, setOccurrence] = useState(0);
@@ -63,7 +66,11 @@ export function AnnotationEditor({ visible, line, symbols, initialRange, onClose
 
   const save = () => {
     setError('');
-    if (!symbolId && !customText.trim()) {
+    if (mode === 'highlight' && !highlight.label.trim()) {
+      setError('歌い方の名前を入力してください。');
+      return;
+    }
+    if (mode === 'symbol' && !symbolId && !customText.trim()) {
       setError('記号を選択するか、自由記述を入力してください。');
       return;
     }
@@ -77,15 +84,16 @@ export function AnnotationEditor({ visible, line, symbols, initialRange, onClose
       setError('記号を置く文字と文字の間を選択してください。');
       return;
     }
-    if (range && hasOverlappingRange(line.annotations, range)) {
-      setError('この範囲は別の記号と重なっています。重ならない範囲を選択してください。');
+    if (range && hasOverlappingRange(line.annotations, range, undefined, mode)) {
+      setError(mode === 'highlight' ? 'この範囲にはすでに色分けがあります。下の一覧から既存の色分けを削除するか、別の範囲を選択してください。' : 'この範囲は別の記号と重なっています。重ならない範囲を選択してください。');
       return;
     }
     const date = nowIso();
     onSave({
-      id: createId(), symbolId, position: targetType === 'boundary' ? 'inline' : 'above', targetType, range, boundary,
+      id: createId(), symbolId: mode === 'highlight' ? '' : symbolId, position: targetType === 'boundary' ? 'inline' : 'above', targetType, range, boundary,
+      highlight: mode === 'highlight' ? { ...highlight, label: highlight.label.trim() } : undefined,
       targetTextSnapshot: range ? line.text.slice(range.start, range.end) : undefined,
-      customText: customText.trim() || undefined, memo: memo.trim() || undefined,
+      customText: mode === 'symbol' ? customText.trim() || undefined : undefined, memo: memo.trim() || undefined,
       status: 'valid', createdAt: date, updatedAt: date,
     });
     onClose();
@@ -93,10 +101,11 @@ export function AnnotationEditor({ visible, line, symbols, initialRange, onClose
 
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}><View style={styles.headerCopy}><Text style={styles.title}>歌詞に記号を追加</Text><Text style={styles.subtitle}>文字の上・文字の間・行全体から配置を選べます</Text></View><Button label="閉じる" variant="ghost" onPress={onClose} /></View>
+      <View style={styles.header}><View style={styles.headerCopy}><Text style={styles.title}>歌詞に記号・色分けを追加</Text><Text style={styles.subtitle}>選んだ語句に歌い方を書き込みます</Text></View><Button label="閉じる" variant="ghost" onPress={onClose} /></View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
-        <View style={styles.step}><Text style={styles.stepNumber}>1</Text><Text style={styles.stepTitle}>記号を付ける場所を選ぶ</Text></View>
-        <ChoiceChips value={targetType} onChange={(value) => { setTargetType(value); setError(''); }} options={line.text ? [{ value: 'range', label: '文字・語句の上' }, { value: 'boundary', label: '文字の間（ブレス）' }, { value: 'line', label: '行全体' }] : [{ value: 'line', label: '行全体' }]} />
+        {!!line.text && <ChoiceChips value={mode} onChange={(value) => { setMode(value); if (value === 'highlight') setTargetType('range'); setError(''); }} options={[{ value: 'symbol', label: '記号を追加' }, { value: 'highlight', label: '背景色で歌い方を指定' }]} />}
+        <View style={styles.step}><Text style={styles.stepNumber}>1</Text><Text style={styles.stepTitle}>{mode === 'highlight' ? '色を付ける文字・語句を選ぶ' : '記号を付ける場所を選ぶ'}</Text></View>
+        {mode === 'symbol' && <ChoiceChips value={targetType} onChange={(value) => { setTargetType(value); setError(''); }} options={line.text ? [{ value: 'range', label: '文字・語句の上' }, { value: 'boundary', label: '文字の間（ブレス）' }, { value: 'line', label: '行全体' }] : [{ value: 'line', label: '行全体' }]} />}
         {targetType === 'range' && <>
           <Text style={styles.hint}>{initialRange ? '歌詞画面で選択した範囲です。必要なら先頭文字と末尾文字をタップして選び直せます。' : '対象語句の先頭文字をタップし、次に末尾文字をタップしてください。1文字だけなら同じ文字を続けてタップします。'}</Text>
           {characters.length > 0 ? <View accessibilityLabel="記号を付ける歌詞の範囲を選択" style={styles.characterPicker}>{characters.map((character, index) => {
@@ -115,15 +124,20 @@ export function AnnotationEditor({ visible, line, symbols, initialRange, onClose
         </>}
         {targetType === 'line' && <Text style={styles.preview}>この行全体に記号を付けます。</Text>}
 
-        <View style={styles.step}><Text style={styles.stepNumber}>2</Text><Text style={styles.stepTitle}>記号を選ぶ</Text></View>
+        <View style={styles.step}><Text style={styles.stepNumber}>2</Text><Text style={styles.stepTitle}>{mode === 'highlight' ? '歌い方と背景色を選ぶ' : '記号を選ぶ'}</Text></View>
+        {mode === 'highlight' ? <>
+          <HighlightPicker value={highlight} onChange={setHighlight} />
+          {resolvedRange && <View><Text style={styles.label}>プレビュー</Text><Text style={styles.highlightPreview}>{line.text.slice(0, resolvedRange.start)}<Text style={{ backgroundColor: highlight.color }}>{line.text.slice(resolvedRange.start, resolvedRange.end)}</Text>{line.text.slice(resolvedRange.end)}</Text></View>}
+        </> : <>
         <Text style={styles.hint}>「伸ばす」「短く切る」など、歌い方が分かる名前から選べます。</Text>
         <View style={styles.symbols}>{symbols.map((symbol) => <Pressable accessibilityRole="radio" accessibilityLabel={`${symbol.name}、${symbol.meaning}`} accessibilityState={{ checked: symbolId === symbol.id }} key={symbol.id} onPress={() => setSymbolId(symbol.id)} style={[styles.symbol, symbolId === symbol.id && styles.selected]}><Text style={[styles.symbolText, { color: symbol.color }]}>{symbol.symbol}</Text><Text numberOfLines={2} style={styles.symbolName}>{symbol.name}</Text></Pressable>)}</View>
         <FormField label="自由記述（任意）" value={customText} onChangeText={setCustomText} placeholder="例：ここだけ語尾を軽く" hint="選んだ記号の代わり、または補足として表示します。" />
+        </>}
         <FormField label="補足メモ" value={memo} onChangeText={setMemo} placeholder="歌い方の詳細（任意）" multiline />
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-        <Button label="この記号を追加" onPress={save} />
+        <Button label={mode === 'highlight' ? 'この色分けを追加' : 'この記号を追加'} onPress={save} />
 
-        {line.annotations.length > 0 && onDelete && <View style={styles.existing}><Text style={styles.label}>この行に付いている記号</Text><View style={styles.existingButtons}>{line.annotations.map((annotation) => <Button key={annotation.id} label={`${annotationMarker(annotation, symbols)}を削除`} variant="danger" onPress={() => onDelete(annotation.id)} />)}</View></View>}
+        {line.annotations.length > 0 && onDelete && <View style={styles.existing}><Text style={styles.label}>この行の記号・色分け</Text><View style={styles.existingButtons}>{line.annotations.map((annotation) => <Button key={annotation.id} label={`${annotationMarker(annotation, symbols)}を削除${annotation.highlight ? `（${annotation.targetTextSnapshot}）` : ''}`} variant="danger" onPress={() => onDelete(annotation.id)} />)}</View></View>}
       </ScrollView>
     </SafeAreaView>
   </Modal>;
@@ -154,6 +168,7 @@ const styles = StyleSheet.create({
   preview: { flex: 1, minWidth: 180, color: colors.success, paddingVertical: 10, fontWeight: '700' },
   waiting: { color: colors.muted, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 10, borderRadius: 8 },
   label: { fontSize: 15, fontWeight: '700', color: colors.text },
+  highlightPreview: { fontSize: 22, lineHeight: 34, color: colors.text, marginTop: 8 },
   symbols: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   symbol: { width: 92, minHeight: 80, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface, padding: 6 },
   selected: { borderColor: colors.primary, backgroundColor: colors.primarySoft, borderWidth: 2 },

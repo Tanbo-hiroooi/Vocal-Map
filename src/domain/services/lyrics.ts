@@ -22,8 +22,8 @@ export function rangesOverlap(a: TextRange, b: TextRange): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
-export function hasOverlappingRange(annotations: Annotation[], range: TextRange, exceptId?: string): boolean {
-  return annotations.some((item) => item.id !== exceptId && item.targetType === 'range' && item.range && rangesOverlap(item.range, range));
+export function hasOverlappingRange(annotations: Annotation[], range: TextRange, exceptId?: string, layer: 'symbol' | 'highlight' = 'symbol'): boolean {
+  return annotations.some((item) => item.id !== exceptId && !!item.highlight === (layer === 'highlight') && item.targetType === 'range' && item.range && rangesOverlap(item.range, range));
 }
 
 const BOUNDARY_CONTEXT_LENGTH = 6;
@@ -61,6 +61,7 @@ export type LyricSegment = {
   end: number;
   annotations: Annotation[];
   boundaryAnnotations: Annotation[];
+  highlight?: Annotation['highlight'];
 };
 export function createLyricSegments(text: string, annotations: Annotation[]): LyricSegment[] {
   const ranged = annotations
@@ -78,12 +79,13 @@ export function createLyricSegments(text: string, annotations: Annotation[]): Ly
       text: text.slice(start, end),
       start,
       end,
-      annotations: ranged.filter((a) => a.range.start === start),
+      annotations: ranged.filter((a) => !a.highlight && a.range.start === start),
       boundaryAnnotations: atBoundaries.filter((a) => a.boundary.index === start),
+      highlight: ranged.find((a) => a.highlight && a.status !== 'needs-review' && a.range.start <= start && a.range.end >= end)?.highlight,
     };
   });
   const trailing = atBoundaries.filter((a) => a.boundary.index === text.length);
-  if (trailing.length && text.length > 0) segments.push({ text: '', start: text.length, end: text.length, annotations: [], boundaryAnnotations: trailing });
+  if (trailing.length && text.length > 0) segments.push({ text: '', start: text.length, end: text.length, annotations: [], boundaryAnnotations: trailing, highlight: undefined });
   return segments;
 }
 

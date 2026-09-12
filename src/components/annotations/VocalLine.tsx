@@ -6,7 +6,7 @@ import { LyricSegmentText, LyricSelectionSurface } from './LyricSelectionSurface
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-const marker = (a: Annotation, symbols: SymbolDefinition[]) => a.customText || symbols.find((s) => s.id === a.symbolId)?.symbol || '？';
+const marker = (a: Annotation, symbols: SymbolDefinition[]) => a.highlight ? `${a.highlight.label}の色分け` : a.customText || symbols.find((s) => s.id === a.symbolId)?.symbol || '？';
 const markerColor = (a: Annotation, symbols: SymbolDefinition[]) => a.colorOverride || symbols.find((s) => s.id === a.symbolId)?.color || colors.muted;
 function Markers({ items, symbols, fontSize, reserveSpace = false }: { items: Annotation[]; symbols: SymbolDefinition[]; fontSize: number; reserveSpace?: boolean }) {
   if (!items.length && !reserveSpace) return null;
@@ -40,7 +40,7 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
         <BoundaryMarkers items={segment.boundaryAnnotations} symbols={symbols} fontSize={fontSize} reserveAbove={hasRangeMarkers} />
         {!!segment.text && <View testID={`lyric-segment-${i}`} style={styles.segment}>
           {hasRangeMarkers && <Markers items={segment.annotations} symbols={symbols} fontSize={fontSize} reserveSpace />}
-          <LyricSegmentText text={segment.text} start={segment.start} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }]} />
+          <LyricSegmentText text={segment.text} start={segment.start} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }, segment.highlight && { backgroundColor: segment.highlight.color }]} />
         </View>}
       </React.Fragment>;
     }) : <Text style={[styles.lyric, { fontSize }]}>　</Text>}
@@ -48,6 +48,7 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
   const content = <>
     <Markers items={lineItems} symbols={symbols} fontSize={fontSize} />
     {onPress ? <LyricSelectionSurface accessibilityLabel={line.text ? `歌詞「${line.text}」を選択` : '空行を選択'} textLength={line.text.length} onPress={onPress} onRangeSelect={onRangeSelect}>{lyricContent}</LyricSelectionSurface> : lyricContent}
+    {line.annotations.filter((a) => a.highlight).map((a) => <Text key={`highlight-${a.id}`} style={[styles.memo, { color: colors.text, alignSelf: 'flex-start', backgroundColor: a.highlight!.color, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }]}>{a.highlight!.label}：「{a.targetTextSnapshot}」{a.status === 'needs-review' ? ' ⚠ 要確認（位置を選び直してください）' : ''}</Text>)}
     {line.annotations.filter((a) => a.memo).map((a) => <Text key={`memo-${a.id}`} style={styles.memo}>・{a.memo}</Text>)}
   </>;
   return <View testID="vocal-line" style={[styles.container, !line.text && styles.blank]}>

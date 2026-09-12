@@ -13,6 +13,7 @@ export type Annotation = {
   position: AnnotationPosition;
   targetType: 'line' | 'range' | 'boundary';
   range?: TextRange;
+  highlight?: { label: string; color: string };
   boundary?: TextBoundary;
   targetTextSnapshot?: string;
   customText?: string;

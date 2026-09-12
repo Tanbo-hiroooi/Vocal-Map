@@ -1,4 +1,16 @@
-import { AppData } from '@/domain/models';
+import { Annotation, AppData } from '@/domain/models';
+
+function validHighlight(annotation: Annotation): boolean {
+  if (!annotation || typeof annotation !== 'object') return false;
+  if (annotation.highlight === undefined) return true;
+  const h = annotation.highlight;
+  const range = annotation.range;
+  return !!h && typeof h === 'object' && typeof h.label === 'string' && !!h.label.trim()
+    && typeof h.color === 'string' && /^#[0-9a-f]{6}$/i.test(h.color)
+    && annotation.targetType === 'range' && !!range
+    && Number.isInteger(range.start) && Number.isInteger(range.end) && range.start >= 0 && range.end > range.start
+    && typeof annotation.targetTextSnapshot === 'string';
+}
 
 export type ValidationResult = { valid: true; data: AppData } | { valid: false; message: string };
 export function validateImportData(input: unknown): ValidationResult {
@@ -6,7 +18,8 @@ export function validateImportData(input: unknown): ValidationResult {
   const data = input as Partial<AppData>;
   if (typeof data.schemaVersion !== 'number') return { valid: false, message: 'schemaVersionがありません。' };
   if (!Array.isArray(data.songs) || !Array.isArray(data.symbols) || !data.settings) return { valid: false, message: '曲、記号、設定の必須データがありません。' };
-  const songsValid = data.songs.every((song) => song && typeof song.id === 'string' && typeof song.title === 'string' && Array.isArray(song.lyrics));
+  const songsValid = data.songs.every((song) => song && typeof song.id === 'string' && typeof song.title === 'string' && Array.isArray(song.lyrics)
+    && song.lyrics.every((line) => line && typeof line.text === 'string' && Array.isArray(line.annotations) && line.annotations.every(validHighlight)));
   const symbolsValid = data.symbols.every((symbol) => symbol && typeof symbol.id === 'string' && typeof symbol.symbol === 'string' && typeof symbol.name === 'string');
   const spacingValid = data.schemaVersion < 6 || typeof data.settings.lyricLineSpacing === 'number';
   if (!songsValid || !symbolsValid || typeof data.settings.defaultFontSize !== 'number' || typeof data.settings.practiceFontSize !== 'number' || !spacingValid) return { valid: false, message: 'データ形式が壊れているため読み込めません。' };
