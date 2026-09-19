@@ -12,7 +12,7 @@ import { HighlightPicker } from './HighlightPicker';
 const annotationMarker = (annotation: Annotation, symbols: SymbolDefinition[]) => annotation.highlight ? `${annotation.highlight.label}の色分け` : annotation.customText || symbols.find((symbol) => symbol.id === annotation.symbolId)?.symbol || '？';
 type TargetType = Annotation['targetType'];
 
-export function AnnotationEditor({ visible, line, symbols, initialRange, selectionKey, onClose, onSave, onDelete }: { visible: boolean; line: LyricLine; symbols: SymbolDefinition[]; initialRange?: TextRange; selectionKey?: number; onClose(): void; onSave(annotation: Annotation): void | Promise<void>; onDelete?(id: string): void | Promise<void> }) {
+export function AnnotationEditor({ visible, line, symbols, initialRange, selectionKey, expanded, onToggleExpanded, onClose, onSave, onDelete }: { visible: boolean; line: LyricLine; symbols: SymbolDefinition[]; initialRange?: TextRange; selectionKey?: number; expanded?: boolean; onToggleExpanded?(): void; onClose(): void; onSave(annotation: Annotation): void | Promise<void>; onDelete?(id: string): void | Promise<void> }) {
   const [symbolId, setSymbolId] = useState(symbols.find((symbol) => symbol.isFavorite)?.id ?? symbols[0]?.id ?? '');
   const [mode, setMode] = useState<'symbol' | 'highlight'>('symbol');
   const [highlight, setHighlight] = useState({ label: '裏声', color: '#E9E3FF' });
@@ -138,7 +138,7 @@ export function AnnotationEditor({ visible, line, symbols, initialRange, selecti
 
   if (!visible) return null;
   return <View testID="annotation-editor" style={styles.safe}>
-      <View style={styles.header}><View style={styles.headerCopy}><Text style={styles.title}>記号・色分け</Text><Text numberOfLines={1} style={styles.subtitle}>編集中：{line.text || '空行'}</Text></View><Button label="閉じる" variant="ghost" onPress={onClose} /></View>
+      <View style={styles.header}><View style={styles.headerCopy}><Text style={styles.title}>記号・色分け</Text><Text numberOfLines={1} style={styles.subtitle}>編集中：{line.text || '空行'}</Text></View>{onToggleExpanded && <Button label={expanded ? '縮める' : '広げる'} accessibilityLabel={expanded ? '編集パネルを縮める' : '編集パネルを広げる'} variant="ghost" onPress={onToggleExpanded} />}<Button label="閉じる" variant="ghost" onPress={onClose} /></View>
       <ScrollView ref={editorScroll} testID="annotation-editor-scroll" style={styles.scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
         {!!line.text && <ChoiceChips value={mode} onChange={(value) => { setMode(value); if (value === 'highlight') setTargetType('range'); setError(''); }} options={[{ value: 'symbol', label: '記号を追加' }, { value: 'highlight', label: '背景色で歌い方を指定' }]} />}
         <View style={styles.step}><Text style={styles.stepNumber}>1</Text><Text style={styles.stepTitle}>{mode === 'highlight' ? '色を付ける文字・語句を選ぶ' : '記号を付ける場所を選ぶ'}</Text></View>

@@ -18,6 +18,7 @@ export default function MapScreen() {
   const { width } = useWindowDimensions();
   const song = songs.find((item) => item.id === id);
   const [selection, setSelection] = useState<{ lineId: string; range?: TextRange; revision: number }>();
+  const [editorExpanded, setEditorExpanded] = useState(false);
   const active = song?.lyrics.find((line) => line.id === selection?.lineId);
   const lyricScroll = useRef<ScrollView>(null);
   const lineOffsets = useRef<Record<string, number>>({});
@@ -30,12 +31,12 @@ export default function MapScreen() {
   const settingsLoaded = useRef(false);
   const revealSelection = () => {
     const offset = selection && lineOffsets.current[selection.lineId];
-    if (offset !== undefined) lyricScroll.current?.scrollTo({ y: Math.max(0, lyricsTop.current + offset - 64), animated: false });
+    if (offset !== undefined) lyricScroll.current?.scrollTo({ y: Math.max(0, lyricsTop.current + offset - 8), animated: false });
   };
   useEffect(() => {
     if (!selection) return;
     const offset = lineOffsets.current[selection.lineId];
-    if (offset !== undefined) lyricScroll.current?.scrollTo({ y: Math.max(0, lyricsTop.current + offset - 64), animated: false });
+    if (offset !== undefined) lyricScroll.current?.scrollTo({ y: Math.max(0, lyricsTop.current + offset - 8), animated: false });
   }, [selection]);
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function MapScreen() {
 
   return <Screen scroll={false} contentStyle={styles.screen}>
     <View testID="map-workspace" style={[styles.workspace, width >= 1000 && styles.workspaceWide]}>
-    <ScrollView ref={lyricScroll} testID="map-lyrics-scroll" style={styles.lyricScroll} contentContainerStyle={styles.lyricContent} keyboardShouldPersistTaps="handled" onLayout={revealSelection}>
+    <ScrollView ref={lyricScroll} testID="map-lyrics-scroll" style={[styles.lyricScroll, active && width < 1000 && styles.lyricPreview]} contentContainerStyle={styles.lyricContent} keyboardShouldPersistTaps="handled" onLayout={revealSelection}>
     <View style={styles.header}><View style={styles.heading}><Text style={styles.title}>{song.title}</Text><Text style={styles.artist}>{song.artist || 'アーティスト未設定'}</Text></View><View style={styles.headerActions}><Button label="← 曲一覧へ" variant="ghost" onPress={() => router.dismissTo('/')} accessibilityLabel="曲一覧へ戻る"/><Button label="曲情報を編集" variant="secondary" onPress={() => router.push(`/songs/${song.id}/edit`)} /></View></View>
     {song.memo && <Text style={styles.songMemo}>{song.memo}</Text>}
     <View style={styles.guide}><Text style={styles.guideTitle}>歌詞を見ながら記号・色分けを追加</Text><Text style={styles.guideText}>PCでは歌詞をドラッグ、iPhoneでは行をタップします。横または下の編集パネルで記号・背景色を選べます。編集中も歌詞をスクロールして、別の行を選べます。</Text></View>
@@ -89,8 +90,8 @@ export default function MapScreen() {
     {!!displayError && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{displayError}</Text>}
     <View testID="lyric-lines" onLayout={(event) => { lyricsTop.current = event.nativeEvent.layout.y; }} style={[styles.lines, { gap: lineSpacing }]}>{song.lyrics.map((line) => <View key={line.id} onLayout={(event) => { lineOffsets.current[line.id] = event.nativeEvent.layout.y; }} style={[styles.lineTarget, active?.id === line.id && styles.activeLine]}><VocalLine line={line} symbols={symbols} fontSize={responsiveFontSize} editing={false} onPress={() => openEditor(line)} onRangeSelect={(range) => openEditor(line, range)} /></View>)}</View>
     </ScrollView>
-    {active && <View testID="map-editor-pane" style={[styles.editorPane, width >= 1000 ? styles.editorWide : styles.editorBelow]}>
-      <AnnotationEditor visible line={active} symbols={symbols} initialRange={selection?.range} selectionKey={selection?.revision} onClose={closeEditor} onSave={(annotation) => updateLine(active.id, [...active.annotations, annotation])} onDelete={(annotationId) => remove(active, annotationId)} />
+    {active && <View testID="map-editor-pane" style={[styles.editorPane, width >= 1000 ? styles.editorWide : [styles.editorBelow, editorExpanded && styles.editorExpanded]]}>
+      <AnnotationEditor visible line={active} symbols={symbols} initialRange={selection?.range} selectionKey={selection?.revision} expanded={editorExpanded} onToggleExpanded={width < 1000 ? () => setEditorExpanded((value) => !value) : undefined} onClose={closeEditor} onSave={(annotation) => updateLine(active.id, [...active.annotations, annotation])} onDelete={(annotationId) => remove(active, annotationId)} />
     </View>}
     </View>
   </Screen>;
@@ -101,10 +102,12 @@ const styles = StyleSheet.create({
   workspace: { flex: 1, minHeight: 0, minWidth: 0, width: '100%' },
   workspaceWide: { flexDirection: 'row' },
   lyricScroll: { flex: 1, minHeight: 0, minWidth: 0 },
+  lyricPreview: { minHeight: 120 },
   lyricContent: { padding: 12, gap: 16, maxWidth: 760, width: '100%', alignSelf: 'center' },
   editorPane: { minHeight: 0, minWidth: 0, borderColor: colors.border, overflow: 'hidden' },
   editorWide: { width: 390, borderLeftWidth: 2 },
-  editorBelow: { height: '46%', borderTopWidth: 2 },
+  editorBelow: { height: '70%', flexShrink: 1, borderTopWidth: 2 },
+  editorExpanded: { height: '85%' },
   lineTarget: { borderLeftWidth: 3, borderLeftColor: 'transparent', paddingLeft: 4 },
   activeLine: { borderLeftColor: colors.primary },
   header: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' },

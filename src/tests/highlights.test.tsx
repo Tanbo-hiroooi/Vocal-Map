@@ -81,6 +81,20 @@ describe('歌い方の背景色', () => {
     expect(save.mock.calls[0][0]).toMatchObject({ range: { start: 2, end: 6 }, highlight: { label: '息多め', color: '#DDE8FF' } });
   });
 
+  test('「いいな」の先頭が記号で分割されても、色分けの説明は文字幅を押し広げない', async () => {
+    const text = 'いいな';
+    const color = { ...highlight, range: { start: 0, end: 3 }, targetTextSnapshot: text, highlight: { label: 'ミックス', color: '#DCF3E9' } };
+    const mark = { ...symbol, range: { start: 1, end: 3 }, targetTextSnapshot: 'いな' };
+    const view = await render(<VocalLine line={{ ...line, text, annotations: [color, mark] }} symbols={[]} fontSize={20} editing={false} />);
+    expect(createLyricSegments(text, [color, mark]).map((segment) => segment.text)).toEqual(['い', 'いな']);
+    const label = view.getByTestId('highlight-label');
+    expect(StyleSheet.flatten(label.props.style)).toMatchObject({ position: 'absolute', left: 0, right: 0, top: '100%' });
+    await fireEvent(label, 'layout', { nativeEvent: { layout: { height: 30 } } });
+    expect(StyleSheet.flatten(view.getByTestId('lyric-segment-0').props.style).marginBottom).toBe(30);
+    expect(view.getByText('い')).toBeTruthy();
+    expect(view.getByText('いな')).toBeTruthy();
+  });
+
   test('範囲未選択・空の名前・重複した色分けは保存しない', async () => {
     const save = jest.fn();
     const view = await render(<AnnotationEditor visible line={{ ...line, annotations: [highlight] }} symbols={[]} onClose={() => {}} onSave={save} />);

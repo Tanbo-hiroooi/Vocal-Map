@@ -1,9 +1,9 @@
 import { Button } from '@/components/common/Button';
 import { colors } from '@/constants/theme';
 import { Annotation, LyricLine, SymbolDefinition } from '@/domain/models';
-import { createLyricSegments } from '@/domain/services/lyrics';
+import { createLyricSegments, LyricSegment } from '@/domain/services/lyrics';
 import { LyricSegmentText, LyricSelectionSurface } from './LyricSelectionSurface';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 const marker = (a: Annotation, symbols: SymbolDefinition[]) => a.highlight ? `${a.highlight.label}の色分け` : a.customText || symbols.find((s) => s.id === a.symbolId)?.symbol || '？';
@@ -30,6 +30,16 @@ function BoundaryMarkers({ items, symbols, fontSize, reserveAbove }: { items: An
   </View>;
 }
 
+function LyricSegmentView({ segment, index, symbols, fontSize, hasRangeMarkers }: { segment: LyricSegment; index: number; symbols: SymbolDefinition[]; fontSize: number; hasRangeMarkers: boolean }) {
+  const [labelHeight, setLabelHeight] = useState(15);
+  return <View testID={`lyric-segment-${index}`} style={[styles.segment, segment.highlightLabel && { marginBottom: labelHeight }]}>
+    {hasRangeMarkers && <Markers items={segment.annotations} symbols={symbols} fontSize={fontSize} reserveSpace />}
+    <LyricSegmentText text={segment.text} start={segment.start} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }, segment.highlight && { backgroundColor: segment.highlight.color }]} />
+    {/* 説明は歌詞の幅に収め、短いセグメントの字間を押し広げない。 */}
+    {segment.highlightLabel && <Text testID="highlight-label" accessibilityLabel={segment.highlightLabel.label} numberOfLines={2} onLayout={(event) => setLabelHeight(event.nativeEvent.layout.height)} style={highlightLabelStyle}>{segment.highlightLabel.label}</Text>}
+  </View>;
+}
+
 export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDelete, onPress, onRangeSelect }: { line: LyricLine; symbols: SymbolDefinition[]; fontSize?: number; editing: boolean; onAdd?(): void; onDelete?(id: string): void; onPress?(): void; onRangeSelect?(range: { start: number; end: number }): void }) {
   const segments = createLyricSegments(line.text, line.annotations);
   const lineItems = line.annotations.filter((a) => a.targetType === 'line');
@@ -38,11 +48,7 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
     {segments.length ? segments.map((segment, i) => {
       return <React.Fragment key={`${segment.start}-${segment.end}-${i}`}>
         <BoundaryMarkers items={segment.boundaryAnnotations} symbols={symbols} fontSize={fontSize} reserveAbove={hasRangeMarkers} />
-        {!!segment.text && <View testID={`lyric-segment-${i}`} style={styles.segment}>
-          {hasRangeMarkers && <Markers items={segment.annotations} symbols={symbols} fontSize={fontSize} reserveSpace />}
-          <LyricSegmentText text={segment.text} start={segment.start} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }, segment.highlight && { backgroundColor: segment.highlight.color }]} />
-          {segment.highlightLabel && <Text testID="highlight-label" style={highlightLabelStyle}>{segment.highlightLabel.label}</Text>}
-        </View>}
+        {!!segment.text && <LyricSegmentView segment={segment} index={i} symbols={symbols} fontSize={fontSize} hasRangeMarkers={hasRangeMarkers} />}
       </React.Fragment>;
     }) : <Text style={[styles.lyric, { fontSize }]}>　</Text>}
   </View>;
@@ -57,5 +63,5 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
     {editing && <View style={styles.editRow}><Button label="＋ 記号追加" variant="secondary" onPress={() => onAdd?.()} />{line.annotations.map((a) => <Button key={a.id} label={`${marker(a, symbols)}を削除`} variant="ghost" onPress={() => onDelete?.(a.id)} />)}</View>}
   </View>;
 }
-const highlightLabelStyle = StyleSheet.create({ label: { color: colors.muted, fontSize: 11, lineHeight: 15, maxWidth: '100%', alignSelf: 'flex-start', userSelect: 'none' } }).label;
+const highlightLabelStyle = StyleSheet.create({ label: { position: 'absolute', top: '100%', left: 0, right: 0, color: colors.muted, fontSize: 11, lineHeight: 15, userSelect: 'none' } }).label;
 const styles = StyleSheet.create({ container: { width: '100%', minWidth: 0, paddingHorizontal: 2, paddingVertical: 4, gap: 4 }, blank: { minHeight: 44 }, segments: { width: '100%', maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', minWidth: 0 }, segment: { maxWidth: '100%', minWidth: 0, flexShrink: 1, justifyContent: 'flex-end' }, lyric: { maxWidth: '100%', minWidth: 0, color: colors.text, fontWeight: '600', flexShrink: 1 }, markers: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 5, minHeight: 15, overflow: 'hidden', userSelect: 'none' }, marker: { fontWeight: '900', flexShrink: 1 }, boundarySegment: { flexShrink: 0, justifyContent: 'flex-end' }, boundaryMarkers: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', userSelect: 'none' }, boundaryMarker: { fontWeight: '900', textAlign: 'center' }, memo: { color: colors.muted, fontSize: 13 }, editRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.border } });

@@ -44,13 +44,21 @@ describe('歌詞と編集パネルの同時表示', () => {
     const view = await render(<MapScreen />);
     await fireEvent.press(view.getByRole('button', { name: '歌詞「君に伝えたい」を選択' }));
     const paneStyle = StyleSheet.flatten(view.getByTestId('map-editor-pane').props.style);
-    expect(paneStyle).toMatchObject(width >= 1000 ? { width: 390 } : { height: '46%' });
+    expect(paneStyle).toMatchObject(width >= 1000 ? { width: 390 } : { height: '70%' });
     const lyrics = within(view.getByTestId('map-lyrics-scroll'));
     expect(lyrics.getByText('明日も歌おう')).toBeTruthy();
     expect(within(view.getByTestId('annotation-editor-scroll')).queryByText('この記号を追加')).toBeNull();
     expect(within(view.getByTestId('annotation-editor-actions')).getByText('この記号を追加')).toBeTruthy();
     await fireEvent.press(view.getByLabelText('3文字目「伝」'));
     await fireEvent.press(view.getByLabelText('6文字目「い」'));
+    if (width < 1000) {
+      await fireEvent.press(view.getByLabelText('編集パネルを広げる'));
+      expect(StyleSheet.flatten(view.getByTestId('map-editor-pane').props.style).height).toBe('85%');
+      expect(view.getByText('選択中：『伝えたい』')).toBeTruthy();
+      expect(lyrics.getByText('明日も歌おう')).toBeTruthy();
+      await fireEvent.press(view.getByLabelText('編集パネルを縮める'));
+      expect(StyleSheet.flatten(view.getByTestId('map-editor-pane').props.style).height).toBe('70%');
+    }
     await fireEvent.press(view.getByText('背景色で歌い方を指定'));
     await fireEvent.press(view.getByLabelText('ミックスで色分け'));
     await fireEvent.press(view.getByText('この色分けを追加'));
