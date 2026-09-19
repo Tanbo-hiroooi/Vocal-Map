@@ -24,6 +24,9 @@ export default function MapScreen() {
   const lyricsTop = useRef(0);
   const [fontSize, setFontSize] = useState(settings.practiceFontSize);
   const [lineSpacing, setLineSpacing] = useState(settings.lyricLineSpacing);
+  const displayValues = useRef({ fontSize: settings.practiceFontSize, lineSpacing: settings.lyricLineSpacing });
+  const displaySaveVersion = useRef(0);
+  const [displayError, setDisplayError] = useState('');
   const settingsLoaded = useRef(false);
   const revealSelection = () => {
     const offset = selection && lineOffsets.current[selection.lineId];
@@ -39,6 +42,7 @@ export default function MapScreen() {
     if (loading || settingsLoaded.current) return;
     setFontSize(settings.practiceFontSize);
     setLineSpacing(settings.lyricLineSpacing);
+    displayValues.current = { fontSize: settings.practiceFontSize, lineSpacing: settings.lyricLineSpacing };
     settingsLoaded.current = true;
   }, [loading, settings.lyricLineSpacing, settings.practiceFontSize]);
 
@@ -46,10 +50,19 @@ export default function MapScreen() {
   if (!song) return <Screen><Text accessibilityRole="alert">曲が見つかりません。削除された可能性があります。</Text><Button label="曲一覧へ" onPress={() => router.replace('/')} /></Screen>;
 
   const responsiveFontSize = Math.min(fontSize, width < 380 ? 30 : 38);
-  const changeLineSpacing = (delta: number) => {
-    const next = Math.max(0, Math.min(24, lineSpacing + delta));
-    setLineSpacing(next);
-    void saveSettings({ ...settings, lyricLineSpacing: next });
+  const changeDisplay = (field: 'fontSize' | 'lineSpacing', delta: number) => {
+    const current = displayValues.current;
+    const next = { ...current, [field]: field === 'fontSize'
+      ? Math.max(20, Math.min(42, current.fontSize + delta))
+      : Math.max(0, Math.min(24, current.lineSpacing + delta)) };
+    displayValues.current = next;
+    setFontSize(next.fontSize);
+    setLineSpacing(next.lineSpacing);
+    setDisplayError('');
+    const version = ++displaySaveVersion.current;
+    void saveSettings({ ...settings, practiceFontSize: next.fontSize, lyricLineSpacing: next.lineSpacing }).catch(() => {
+      if (version === displaySaveVersion.current) setDisplayError('文字サイズ・行間を保存できませんでした。もう一度変更してお試しください。');
+    });
   };
   const closeEditor = () => { Keyboard.dismiss(); setSelection(undefined); };
   const openEditor = (line: LyricLine, range?: TextRange) => {
@@ -70,9 +83,10 @@ export default function MapScreen() {
     {song.memo && <Text style={styles.songMemo}>{song.memo}</Text>}
     <View style={styles.guide}><Text style={styles.guideTitle}>歌詞を見ながら記号・色分けを追加</Text><Text style={styles.guideText}>PCでは歌詞をドラッグ、iPhoneでは行をタップします。横または下の編集パネルで記号・背景色を選べます。編集中も歌詞をスクロールして、別の行を選べます。</Text></View>
     <View style={styles.controls}>
-      <View style={styles.controlGroup}><Text style={styles.controlLabel}>文字サイズ</Text><Button label="小さく" variant="ghost" onPress={() => setFontSize(Math.max(20, fontSize - 2))} accessibilityLabel="歌詞の文字を小さくする"/><Text style={styles.size}>{fontSize}</Text><Button label="大きく" variant="ghost" onPress={() => setFontSize(Math.min(42, fontSize + 2))} accessibilityLabel="歌詞の文字を大きくする"/></View>
-      <View style={styles.controlGroup}><Text style={styles.controlLabel}>行間</Text><Button label="狭く" variant="ghost" onPress={() => changeLineSpacing(-2)} accessibilityLabel="歌詞の行間を狭くする"/><Text style={styles.size}>{lineSpacing}</Text><Button label="広く" variant="ghost" onPress={() => changeLineSpacing(2)} accessibilityLabel="歌詞の行間を広くする"/></View>
+      <View style={styles.controlGroup}><Text style={styles.controlLabel}>文字サイズ</Text><Button label="小さく" variant="ghost" onPress={() => changeDisplay('fontSize', -2)} accessibilityLabel="歌詞の文字を小さくする"/><Text testID="lyric-font-size" style={styles.size}>{fontSize}</Text><Button label="大きく" variant="ghost" onPress={() => changeDisplay('fontSize', 2)} accessibilityLabel="歌詞の文字を大きくする"/></View>
+      <View style={styles.controlGroup}><Text style={styles.controlLabel}>行間</Text><Button label="狭く" variant="ghost" onPress={() => changeDisplay('lineSpacing', -2)} accessibilityLabel="歌詞の行間を狭くする"/><Text style={styles.size}>{lineSpacing}</Text><Button label="広く" variant="ghost" onPress={() => changeDisplay('lineSpacing', 2)} accessibilityLabel="歌詞の行間を広くする"/></View>
     </View>
+    {!!displayError && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{displayError}</Text>}
     <View testID="lyric-lines" onLayout={(event) => { lyricsTop.current = event.nativeEvent.layout.y; }} style={[styles.lines, { gap: lineSpacing }]}>{song.lyrics.map((line) => <View key={line.id} onLayout={(event) => { lineOffsets.current[line.id] = event.nativeEvent.layout.y; }} style={[styles.lineTarget, active?.id === line.id && styles.activeLine]}><VocalLine line={line} symbols={symbols} fontSize={responsiveFontSize} editing={false} onPress={() => openEditor(line)} onRangeSelect={(range) => openEditor(line, range)} /></View>)}</View>
     </ScrollView>
     {active && <View testID="map-editor-pane" style={[styles.editorPane, width >= 1000 ? styles.editorWide : styles.editorBelow]}>

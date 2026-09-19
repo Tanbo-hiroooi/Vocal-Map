@@ -41,6 +41,7 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
         {!!segment.text && <View testID={`lyric-segment-${i}`} style={styles.segment}>
           {hasRangeMarkers && <Markers items={segment.annotations} symbols={symbols} fontSize={fontSize} reserveSpace />}
           <LyricSegmentText text={segment.text} start={segment.start} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }, segment.highlight && { backgroundColor: segment.highlight.color }]} />
+          {segment.highlightLabel && <Text testID="highlight-label" style={highlightLabelStyle}>{segment.highlightLabel.label}</Text>}
         </View>}
       </React.Fragment>;
     }) : <Text style={[styles.lyric, { fontSize }]}>　</Text>}
@@ -48,7 +49,7 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
   const content = <>
     <Markers items={lineItems} symbols={symbols} fontSize={fontSize} />
     {onPress ? <LyricSelectionSurface accessibilityLabel={line.text ? `歌詞「${line.text}」を選択` : '空行を選択'} textLength={line.text.length} onPress={onPress} onRangeSelect={onRangeSelect}>{lyricContent}</LyricSelectionSurface> : lyricContent}
-    {line.annotations.filter((a) => a.highlight).map((a) => <Text key={`highlight-${a.id}`} style={[styles.memo, { color: colors.text, alignSelf: 'flex-start', backgroundColor: a.highlight!.color, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }]}>{a.highlight!.label}：「{a.targetTextSnapshot}」{a.status === 'needs-review' ? ' ⚠ 要確認（位置を選び直してください）' : ''}</Text>)}
+    {line.annotations.filter((a) => a.highlight && a.status === 'needs-review').map((a) => <Text key={`highlight-${a.id}`} style={styles.memo}>{a.highlight!.label} ⚠ 要確認（位置を選び直してください）</Text>)}
     {line.annotations.filter((a) => a.memo).map((a) => <Text key={`memo-${a.id}`} style={styles.memo}>・{a.memo}</Text>)}
   </>;
   return <View testID="vocal-line" style={[styles.container, !line.text && styles.blank]}>
@@ -56,4 +57,5 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
     {editing && <View style={styles.editRow}><Button label="＋ 記号追加" variant="secondary" onPress={() => onAdd?.()} />{line.annotations.map((a) => <Button key={a.id} label={`${marker(a, symbols)}を削除`} variant="ghost" onPress={() => onDelete?.(a.id)} />)}</View>}
   </View>;
 }
+const highlightLabelStyle = StyleSheet.create({ label: { color: colors.muted, fontSize: 11, lineHeight: 15, maxWidth: '100%', alignSelf: 'flex-start', userSelect: 'none' } }).label;
 const styles = StyleSheet.create({ container: { width: '100%', minWidth: 0, paddingHorizontal: 2, paddingVertical: 4, gap: 4 }, blank: { minHeight: 44 }, segments: { width: '100%', maxWidth: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', minWidth: 0 }, segment: { maxWidth: '100%', minWidth: 0, flexShrink: 1, justifyContent: 'flex-end' }, lyric: { maxWidth: '100%', minWidth: 0, color: colors.text, fontWeight: '600', flexShrink: 1 }, markers: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'flex-end', gap: 5, minHeight: 15, overflow: 'hidden', userSelect: 'none' }, marker: { fontWeight: '900', flexShrink: 1 }, boundarySegment: { flexShrink: 0, justifyContent: 'flex-end' }, boundaryMarkers: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', userSelect: 'none' }, boundaryMarker: { fontWeight: '900', textAlign: 'center' }, memo: { color: colors.muted, fontSize: 13 }, editRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderTopColor: colors.border } });

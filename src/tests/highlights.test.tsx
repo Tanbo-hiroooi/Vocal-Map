@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { AnnotationEditor } from '@/components/annotations/AnnotationEditor';
 import { VocalLine } from '@/components/annotations/VocalLine';
@@ -56,8 +56,17 @@ describe('歌い方の背景色', () => {
     const view = await render(<VocalLine line={{ ...line, annotations: [saved] }} symbols={[]} editing={false} />);
     expect(StyleSheet.flatten(view.getByText('君に').props.style).backgroundColor).toBeUndefined();
     expect(StyleSheet.flatten(view.getByText('伝えたい').props.style).backgroundColor).toBe('#DCF3E9');
-    expect(view.getByText('ミックス：「伝えたい」')).toBeTruthy();
+    expect(within(view.getByTestId('lyric-segment-1')).getByText('ミックス')).toBeTruthy();
+    expect(view.queryByText('ミックス：「伝えたい」')).toBeNull();
     expect(view.queryByTestId('range-marker-lane')).toBeNull();
+  });
+
+  test('ブレスや記号で色付き語句が分割されても、名前は語句の先頭に一度だけ表示する', async () => {
+    const breath: Annotation = { ...symbol, id: 'breath', targetType: 'boundary', range: undefined, boundary: createTextBoundary(line.text, 4) };
+    const view = await render(<VocalLine line={{ ...line, annotations: [highlight, symbol, breath] }} symbols={[]} editing={false} />);
+    expect(view.getAllByTestId('highlight-label')).toHaveLength(1);
+    expect(within(view.getByTestId('lyric-segment-1')).getByText('裏声')).toBeTruthy();
+    expect(view.queryByText('裏声：「伝えたい」')).toBeNull();
   });
 
   test('スマホの文字選択から独自の名前・色を保存できる', async () => {

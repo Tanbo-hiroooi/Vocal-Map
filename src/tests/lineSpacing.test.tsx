@@ -2,6 +2,7 @@ import SettingsScreen from '@/app/(tabs)/settings';
 import EditSongScreen from '@/app/songs/[id]/edit';
 import MapScreen from '@/app/songs/[id]/map';
 import { AppSettings, Song } from '@/domain/models';
+import { LocalVocalMapRepository } from '@/repositories/LocalVocalMapRepository';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
@@ -12,6 +13,14 @@ const mockUseAppData = jest.fn();
 const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() };
 
 jest.mock('@/features/app/AppProvider', () => ({ useAppData: () => mockUseAppData() }));
+jest.mock('@/storage/storage', () => {
+  const values = new Map<string, string>();
+  return { storage: {
+    getItem: async (key: string) => values.get(key) ?? null,
+    setItem: async (key: string, value: string) => { values.set(key, value); },
+    removeItem: async (key: string) => { values.delete(key); },
+  } };
+});
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'song-1' }),
   useRouter: () => mockRouter,
@@ -37,6 +46,7 @@ const song: Song = {
 describe('歌詞画面の設定とナビゲーション', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSaveSettings.mockImplementation(async () => {});
     mockUseAppData.mockReturnValue({
       songs: [song], symbols: [], settings, loading: false,
       saveSong: mockSaveSong, saveSettings: mockSaveSettings,
@@ -61,6 +71,35 @@ describe('歌詞画面の設定とナビゲーション', () => {
     await fireEvent.press(view.getByLabelText('歌詞の行間を狭くする'));
 
     await waitFor(() => expect(mockSaveSettings).toHaveBeenCalledWith({ ...settings, lyricLineSpacing: 4 }));
+  });
+
+  test('文字サイズと行間を続けて変更しても両方を保存し、再度開いた画面に復元する', async () => {
+    const repository = new LocalVocalMapRepository();
+    await repository.saveSettings(settings);
+    mockSaveSettings.mockImplementation((next) => repository.saveSettings(next));
+    const view = await render(<MapScreen />);
+
+    await fireEvent.press(view.getByLabelText('歌詞の文字を小さくする'));
+    await fireEvent.press(view.getByLabelText('歌詞の行間を広くする'));
+    await fireEvent.press(view.getByLabelText('歌詞の文字を小さくする'));
+    await fireEvent.press(view.getByLabelText('歌詞の行間を広くする'));
+    await Promise.all(mockSaveSettings.mock.results.map((result) => result.value));
+    await view.unmount();
+
+    const restored = await new LocalVocalMapRepository().getSettings();
+    expect(restored).toEqual({ ...settings, practiceFontSize: 24, lyricLineSpacing: 10 });
+    expect(mockSaveSettings.mock.calls[1][0]).toMatchObject({ practiceFontSize: 26, lyricLineSpacing: 8 });
+    mockUseAppData.mockReturnValue({ ...mockUseAppData(), settings: restored });
+    const reopened = await render(<MapScreen />);
+    expect(reopened.getByTestId('lyric-font-size').props.children).toBe(24);
+    expect(StyleSheet.flatten(reopened.getByTestId('lyric-lines').props.style).gap).toBe(10);
+  });
+
+  test('文字サイズの保存失敗を日本語で知らせる', async () => {
+    mockSaveSettings.mockRejectedValueOnce(new Error('Storage full'));
+    const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByLabelText('歌詞の文字を大きくする'));
+    await waitFor(() => expect(view.getByRole('alert').props.children).toBe('文字サイズ・行間を保存できませんでした。もう一度変更してお試しください。'));
   });
 
   test('歌詞画面から履歴に依存せず曲一覧へ戻れる', async () => {
