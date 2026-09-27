@@ -1,8 +1,7 @@
-import { TextRange } from '@/domain/models';
-import React, { PropsWithChildren, useRef } from 'react';
-import { StyleProp, StyleSheet, Text, TextStyle } from 'react-native';
+import React, { useRef } from 'react';
+import { StyleSheet, Text, TextStyle } from 'react-native';
+import { SegmentTextProps, SelectionSurfaceProps } from './LyricSelectionSurface.types';
 
-type Props = PropsWithChildren<{ accessibilityLabel: string; textLength: number; onPress(): void; onRangeSelect?(range: TextRange): void }>;
 type DomBoundary = { container: Node; offset: number };
 
 function boundaryOffset(root: HTMLElement, container: Node, offset: number): number | null {
@@ -32,7 +31,7 @@ function boundaryFromPoint(x: number, y: number): DomBoundary | null {
   return range ? { container: range.startContainer, offset: range.startOffset } : null;
 }
 
-export function LyricSelectionSurface({ children, accessibilityLabel, textLength, onPress, onRangeSelect }: Props) {
+export function LyricSelectionSurface({ children, accessibilityLabel, textLength, onPress, onRangeSelect, onCharacterPress }: SelectionSurfaceProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const ignoreNextClick = useRef(false);
   const dragStart = useRef<(DomBoundary & { x: number; y: number }) | null>(null);
@@ -69,31 +68,44 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
     window.setTimeout(() => { ignoreNextClick.current = false; }, 0);
   };
 
-  const handleClick = () => {
+  const pressCharacter = (target: EventTarget) => {
+    const character = target instanceof Element ? target.closest<HTMLElement>('[data-vocal-character]') : null;
+    if (!character || !onCharacterPress) return false;
+    const start = Number(character.dataset.vocalCharacter);
+    onCharacterPress({ start, end: start + (character.textContent?.length ?? 0) });
+    return true;
+  };
+  const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (ignoreNextClick.current) {
       ignoreNextClick.current = false;
       return;
     }
-    onPress();
+    if (!pressCharacter(event.target)) onPress();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onPress();
+      if (!pressCharacter(event.target)) onPress();
     }
   };
 
-  return <div ref={rootRef} role="button" tabIndex={0} aria-label={accessibilityLabel} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onClick={handleClick} onKeyDown={handleKeyDown} style={webSurfaceStyle}>{children}</div>;
+  return <div ref={rootRef} role={onCharacterPress ? 'group' : 'button'} tabIndex={0} aria-label={accessibilityLabel} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onClick={handleClick} onKeyDown={handleKeyDown} style={webSurfaceStyle}>{children}</div>;
 }
 
-export function LyricSegmentText({ text, start, style }: { text: string; start: number; style: StyleProp<TextStyle> }) {
+export function LyricSegmentText({ text, start, style, selectedRange, onCharacterPress }: SegmentTextProps) {
   const WebText = Text as unknown as React.ComponentType<React.ComponentProps<typeof Text> & { dataSet: Record<string, string> }>;
-  return <WebText selectable dataSet={{ vocalStart: String(start) }} style={[style, styles.lyricText, webLyricTextStyle as TextStyle]}>{text}</WebText>;
+  let offset = start;
+  return <WebText selectable dataSet={{ vocalStart: String(start) }} style={[style, styles.lyricText, webLyricTextStyle as TextStyle]}>{!onCharacterPress ? text : Array.from(text).map((character) => {
+    const range = { start: offset, end: offset + character.length }; offset = range.end;
+    const selected = !!selectedRange && range.start < selectedRange.end && range.end > selectedRange.start;
+    return <WebText key={range.start} dataSet={{ vocalCharacter: String(range.start) }} accessibilityRole="button" accessibilityLabel={`${range.start + 1}文字目「${character}」`} accessibilityState={{ selected }} style={selected ? styles.selected : undefined}>{character}</WebText>;
+  })}</WebText>;
 }
 
 const styles = StyleSheet.create({
   lyricText: { userSelect: 'text' },
+  selected: { textDecorationLine: 'underline', textDecorationColor: '#C34734' },
 });
 
 const webSurfaceStyle: React.CSSProperties = {
