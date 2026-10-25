@@ -3,24 +3,9 @@ import { StyleSheet, Text, TextStyle } from 'react-native';
 import { SegmentTextProps, SelectionSurfaceProps } from './LyricSelectionSurface.types';
 import { boundaryAtPoint, CharacterBox, selectionCharacters } from '@/domain/services/textSelection';
 import { SelectionHandles } from './SelectionHandles';
+import { boundaryOffset, observeNativeLyricSelection, readLyricSelection } from './nativeSelectionBridge.web';
 
 type DomBoundary = { container: Node; offset: number };
-
-function boundaryOffset(root: HTMLElement, container: Node, offset: number): number | null {
-  const element = container.nodeType === Node.ELEMENT_NODE ? container as Element : container.parentElement;
-  const segment = element?.closest<HTMLElement>('[data-vocal-start]');
-  if (!segment || !root.contains(segment)) return null;
-  const segmentStart = Number(segment.dataset.vocalStart);
-  if (!Number.isFinite(segmentStart)) return null;
-  try {
-    const prefix = document.createRange();
-    prefix.selectNodeContents(segment);
-    prefix.setEnd(container, offset);
-    return segmentStart + prefix.toString().length;
-  } catch {
-    return null;
-  }
-}
 
 function boundaryFromPoint(x: number, y: number): DomBoundary | null {
   const caretDocument = document as Document & {
@@ -40,6 +25,22 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
   const inputKind = useRef('mouse');
   const [touchMode, setTouchMode] = useState(false);
   const handleDrag = useRef(false);
+  const mouseSelecting = useRef(false);
+  const [nativeSelectionActive, setNativeSelectionActive] = useState(false);
+  const rangeCallback = useRef(onRangeSelect);
+  useLayoutEffect(() => { rangeCallback.current = onRangeSelect; }, [onRangeSelect]);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const bridge = observeNativeLyricSelection(root, textLength, {
+      canSync: () => !handleDrag.current && !mouseSelecting.current,
+      onRange: (range) => rangeCallback.current?.(range),
+      onActive: setNativeSelectionActive,
+    });
+    const releaseMouse = () => { mouseSelecting.current = false; bridge.sync(); };
+    root.ownerDocument.addEventListener('mouseup', releaseMouse);
+    return () => { bridge.dispose(); root.ownerDocument.removeEventListener('mouseup', releaseMouse); };
+  }, [textLength]);
   const touchStart = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> } | null>(null);
   const [layout, setLayout] = useState({ boxes: [] as CharacterBox[], width: 0 });
   const measure = useCallback(() => {
@@ -64,6 +65,7 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
   const cancelHold = () => { if (touchStart.current) clearTimeout(touchStart.current.timer); touchStart.current = null; };
   useEffect(() => () => { if (touchStart.current) clearTimeout(touchStart.current.timer); }, []);
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    ignoreNextClick.current = false;
     inputKind.current = event.pointerType;
     setTouchMode(event.pointerType !== 'mouse');
     cancelHold();
@@ -73,7 +75,9 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
     const range = { start, end: start + (character.textContent?.length ?? 0) };
     touchStart.current = { x: event.clientX, y: event.clientY, timer: setTimeout(() => {
       ignoreNextClick.current = true;
-      onCharacterLongPress(range);
+      const nativeRange = rootRef.current && readLyricSelection(rootRef.current, window.getSelection(), textLength);
+      if (nativeRange) { setNativeSelectionActive(true); onRangeSelect?.(nativeRange); }
+      else onCharacterLongPress(range);
     }, 450) };
   };
 
@@ -81,11 +85,13 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
     if (event.target instanceof Element && event.target.closest('[data-testid^="selection-handle-"]')) return;
     if (inputKind.current !== 'mouse') return;
     if (event.button !== 0 || !onRangeSelect) return;
+    mouseSelecting.current = true;
     const boundary = boundaryFromPoint(event.clientX, event.clientY);
     dragStart.current = boundary ? { ...boundary, x: event.clientX, y: event.clientY } : null;
   };
 
   const handleMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
+    mouseSelecting.current = false;
     if (handleDrag.current || ignoreNextClick.current) { dragStart.current = null; return; }
     if (inputKind.current !== 'mouse') return;
     if (event.button !== 0 || !onRangeSelect) {
@@ -122,6 +128,8 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
   };
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target instanceof Element && event.target.closest('[data-testid^="selection-handle-"]')) return;
+    const nativeRange = rootRef.current && readLyricSelection(rootRef.current, window.getSelection(), textLength);
+    if (nativeRange && onRangeSelect) { ignoreNextClick.current = false; onRangeSelect(nativeRange); return; }
     if (ignoreNextClick.current) {
       ignoreNextClick.current = false;
       return;
@@ -138,11 +146,11 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
 
   return <div ref={rootRef} role={onCharacterPress ? 'group' : 'button'} tabIndex={0} aria-label={accessibilityLabel}
     onPointerDown={handlePointerDown} onPointerMove={(event) => { if (touchStart.current && Math.hypot(event.clientX - touchStart.current.x, event.clientY - touchStart.current.y) > 10) cancelHold(); }}
-    onPointerUp={cancelHold} onPointerCancel={cancelHold} onContextMenu={(event) => { if (touchMode) event.preventDefault(); }}
+    onPointerUp={cancelHold} onPointerCancel={cancelHold} onContextMenu={(event) => { if (touchMode || nativeSelectionActive) event.preventDefault(); }}
     onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onClick={handleClick} onKeyDown={handleKeyDown}
-    style={{ ...webSurfaceStyle, userSelect: touchMode ? 'none' : 'text', paddingBottom: selectedRange ? 34 : 0 }}>
+    style={{ ...webSurfaceStyle, userSelect: nativeSelectionActive || !touchMode ? 'text' : 'none', WebkitUserSelect: nativeSelectionActive || !touchMode ? 'text' : 'none', paddingBottom: selectedRange ? 34 : 0 }}>
     {children}
-    {selectedRange && onSelectionEdgeChange && <SelectionHandles range={selectedRange} boxes={layout.boxes} width={layout.width} onDragStart={() => { handleDrag.current = true; ignoreNextClick.current = true; measure(); onSelectionDragging?.(true); }} onDrag={(edge, x, y) => { const current = measure(); const index = boundaryAtPoint(current.boxes, x - current.x, y - current.y); if (index !== undefined) onSelectionEdgeChange(edge, index); }} onDragEnd={() => { handleDrag.current = false; onSelectionDragging?.(false); window.setTimeout(() => { ignoreNextClick.current = false; }, 0); }} />}
+    {selectedRange && !nativeSelectionActive && onSelectionEdgeChange && <SelectionHandles range={selectedRange} boxes={layout.boxes} width={layout.width} onDragStart={() => { handleDrag.current = true; ignoreNextClick.current = true; measure(); onSelectionDragging?.(true); }} onDrag={(edge, x, y) => { const current = measure(); const index = boundaryAtPoint(current.boxes, x - current.x, y - current.y); if (index !== undefined) onSelectionEdgeChange(edge, index); }} onDragEnd={() => { handleDrag.current = false; onSelectionDragging?.(false); window.setTimeout(() => { ignoreNextClick.current = false; }, 0); }} />}
   </div>;
 }
 
