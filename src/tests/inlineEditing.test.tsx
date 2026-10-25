@@ -49,7 +49,7 @@ describe('歌詞上での直接編集', () => {
     expect(mockSave.mock.calls[0][0].lyrics[0].annotations[0]).toMatchObject({ range: { start: 2, end: 6 }, highlight: { label: 'ミックス' } });
     await fireEvent.press(view.getByRole('button', { name: '閉じる' }));
     await fireEvent.press(first.getByLabelText('4文字目「え」'));
-    expect(view.getByText('「伝えたい」を変更')).toBeTruthy();
+    expect(view.getByText('選択中：「伝えたい」を変更')).toBeTruthy();
     await fireEvent.press(view.getByLabelText('裏声で色分け'));
     await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2));
     expect(mockSave.mock.calls[1][0].lyrics[0].annotations).toHaveLength(1);
@@ -104,6 +104,20 @@ describe('歌詞上での直接編集', () => {
     expect(save).toHaveBeenCalledTimes(1);
     await act(async () => rejectSave(new Error('保存できませんでした。')));
     expect(view.getByRole('alert')).toBeTruthy();
-    expect(view.getByText('「君に」')).toBeTruthy();
+    expect(view.getByText('選択中：「君に」')).toBeTruthy();
+  });
+
+  test('長押しで範囲を作り、先頭・末尾を1文字ずつ調整した範囲に色分けを保存する', async () => {
+    const view = await render(<MapScreen />);
+    const first = within(view.getByTestId('lyric-line-one'));
+    await fireEvent(first.getByLabelText('3文字目「伝」'), 'longPress');
+    expect(view.getByText('選択中：「伝」')).toBeTruthy();
+    expect(first.getAllByTestId('selection-character-outline')).toHaveLength(1);
+    await fireEvent.press(view.getByLabelText('先頭を1文字前へ'));
+    await fireEvent.press(view.getByLabelText('末尾を1文字後へ'));
+    expect(view.getByText('選択中：「に伝え」')).toBeTruthy();
+    await fireEvent.press(view.getByText('色分け', { exact: true }));
+    await fireEvent.press(view.getByLabelText('裏声で色分け'));
+    expect(mockSave.mock.calls[0][0].lyrics[0].annotations[0]).toMatchObject({ range: { start: 1, end: 4 }, targetTextSnapshot: 'に伝え' });
   });
 });

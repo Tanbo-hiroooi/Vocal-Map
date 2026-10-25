@@ -4,16 +4,18 @@ import { FormField } from '@/components/common/FormField';
 import { colors } from '@/constants/theme';
 import { Annotation, LyricLine, SymbolDefinition, TextRange } from '@/domain/models';
 import { AnnotationContent, AnnotationTarget, makeQuickAnnotation } from '@/domain/services/quickAnnotation';
+import { moveSelectionEdge, SelectionEdge, selectionCharacters } from '@/domain/services/textSelection';
 import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HighlightPicker } from './HighlightPicker';
 
 type Props = { line: LyricLine; range?: TextRange; awaitingEnd: boolean; awaitingRange?: boolean; annotation?: Annotation; symbols: SymbolDefinition[];
+  onAdjustRange?(edge: SelectionEdge, direction: -1 | 1): void;
   onSave(annotation: Annotation): Promise<void>; onDelete(id: string): Promise<void>;
   onClose(): void; onReselect(): void; onSelectLine(): void };
 const colorPresets = [{ label: '裏声', color: '#E9E3FF' }, { label: 'ミックス', color: '#DCF3E9' }, { label: '地声', color: '#FFE7A0' }];
 
-export function QuickAnnotationToolbar({ line, range, awaitingEnd, awaitingRange, annotation, symbols, onSave, onDelete, onClose, onReselect, onSelectLine }: Props) {
+export function QuickAnnotationToolbar({ line, range, awaitingEnd, awaitingRange, annotation, symbols, onAdjustRange, onSave, onDelete, onClose, onReselect, onSelectLine }: Props) {
   const [mode, setMode] = useState<'symbol' | 'highlight' | 'breath'>(annotation?.highlight ? 'highlight' : annotation?.targetType === 'boundary' ? 'breath' : 'symbol');
   const [more, setMore] = useState(false);
   const [side, setSide] = useState<'before' | 'after'>('after');
@@ -47,9 +49,18 @@ export function QuickAnnotationToolbar({ line, range, awaitingEnd, awaitingRange
   const ordered = [...symbols].filter((s) => mode !== 'breath' || s.category === 'breath').sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite) || a.order - b.order);
   const visibleSymbols = more ? ordered : ordered.slice(0, 6);
   const description = awaitingRange ? '歌詞上で文字を選択' : range ? `「${line.text.slice(range.start, range.end)}」` : annotation?.targetType === 'boundary' ? '文字の間' : '行全体';
+  const characters = selectionCharacters(line.text);
+  const canMove = (edge: SelectionEdge, direction: -1 | 1) => !!range && moveSelectionEdge(line.text, range, edge, direction)[edge] !== range[edge];
   return <View testID="quick-annotation-toolbar" style={styles.toolbar}>
-    <View style={styles.header}><Text numberOfLines={2} style={styles.target}>{description}{annotation ? 'を変更' : ''}</Text><Button label="閉じる" variant="ghost" onPress={onClose} /></View>
-    {awaitingEnd && <Text style={styles.hint}>末尾の文字をタップして範囲を広げられます。1文字だけなら、このまま選べます。</Text>}
+    <View style={styles.header}><Text testID="selection-summary" accessibilityLiveRegion="polite" style={styles.target}>選択中：{description}{annotation ? 'を変更' : ''}</Text><Button label="閉じる" variant="ghost" onPress={onClose} /></View>
+    {range && onAdjustRange && <View testID="selection-adjustments" style={styles.adjustments}>
+      <Text style={styles.hint}>{characters.findIndex((c) => c.start === range.start) + 1}〜{characters.findIndex((c) => c.end === range.end) + 1}文字目・青い枠が対象です</Text>
+      <View style={styles.edgeButtons}>{(['start', 'end'] as const).map((edge) => <View key={edge} style={styles.edgeGroup}>
+        <Text style={styles.edgeLabel}>{edge === 'start' ? '先頭' : '末尾'}</Text>
+        {([-1, 1] as const).map((direction) => <Button key={direction} label={direction < 0 ? '←' : '→'} accessibilityLabel={`${edge === 'start' ? '先頭' : '末尾'}を1文字${direction < 0 ? '前' : '後'}へ`} variant="secondary" style={styles.edgeButton} disabled={busy || !canMove(edge, direction)} onPress={() => onAdjustRange(edge, direction)} />)}
+      </View>)}</View>
+    </View>}
+    {awaitingEnd && <Text style={styles.hint}>ハンドルや矢印で範囲を調整できます。末尾の文字をタップしても選べます。</Text>}
     <ChoiceChips value={mode} onChange={(value) => { setMode(value); setMore(false); setError(''); }} options={[{ value: 'symbol', label: '記号' }, { value: 'highlight', label: '色分け' }, { value: 'breath', label: 'ブレス' }]} />
     {mode === 'breath' && (annotation?.targetType !== 'boundary' || range) && <ChoiceChips value={side} onChange={setSide} options={[{ value: 'after', label: '選んだ文字の後' }, { value: 'before', label: '選んだ文字の前' }]} />}
     <View style={styles.choices}>
@@ -75,6 +86,7 @@ export function QuickAnnotationToolbar({ line, range, awaitingEnd, awaitingRange
 const styles = StyleSheet.create({
   toolbar: { width: '100%', maxWidth: 560, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primaryBorder, borderRadius: 16, padding: 10, gap: 8, marginTop: 6, marginBottom: 8 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 4 }, target: { flex: 1, color: colors.text, fontWeight: '800', fontSize: 14 },
+  adjustments: { gap: 4 }, edgeButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, edgeGroup: { flexDirection: 'row', alignItems: 'center', gap: 3 }, edgeLabel: { fontSize: 12, color: colors.text, fontWeight: '700' }, edgeButton: { minWidth: 44, paddingHorizontal: 6, paddingVertical: 6 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, choice: { minHeight: 44, flexGrow: 1, flexBasis: 76, maxWidth: 156, padding: 6, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.primarySoft },
   symbol: { fontSize: 22, fontWeight: '800' }, name: { fontSize: 12, color: colors.text, textAlign: 'center' },
   actions: { flexDirection: 'row', flexWrap: 'wrap' }, compactButton: { paddingHorizontal: 8, paddingVertical: 6 }, details: { gap: 10 }, hint: { color: colors.muted, fontSize: 12, lineHeight: 17 }, error: { color: colors.danger, fontSize: 13 },

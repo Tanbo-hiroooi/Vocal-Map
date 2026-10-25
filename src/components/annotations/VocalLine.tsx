@@ -3,13 +3,14 @@ import { colors } from '@/constants/theme';
 import { Annotation, LyricLine, SymbolDefinition, TextRange } from '@/domain/models';
 import { createLyricSegments, LyricSegment } from '@/domain/services/lyrics';
 import { LyricSegmentText, LyricSelectionSurface } from './LyricSelectionSurface';
+import { SelectionCallbacks } from './LyricSelectionSurface.types';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 const marker = (a: Annotation, symbols: SymbolDefinition[]) => a.highlight ? `${a.highlight.label}の色分け` : a.customText || symbols.find((s) => s.id === a.symbolId)?.symbol || '？';
 const markerColor = (a: Annotation, symbols: SymbolDefinition[]) => a.colorOverride || symbols.find((s) => s.id === a.symbolId)?.color || colors.muted;
 type AnnotationInteraction = { onAnnotationPress?(annotation: Annotation): void };
-type LyricInteraction = AnnotationInteraction & { selectedRange?: TextRange; onCharacterPress?(range: TextRange): void };
+type LyricInteraction = AnnotationInteraction & SelectionCallbacks & { selectedRange?: TextRange; onCharacterPress?(range: TextRange): void };
 function Markers({ items, symbols, fontSize, reserveSpace = false, onAnnotationPress }: { items: Annotation[]; symbols: SymbolDefinition[]; fontSize: number; reserveSpace?: boolean } & AnnotationInteraction) {
   if (!items.length && !reserveSpace) return null;
   const markerFontSize = Math.max(12, fontSize * .66);
@@ -32,17 +33,17 @@ function BoundaryMarkers({ items, symbols, fontSize, reserveAbove, onAnnotationP
   </View>;
 }
 
-function LyricSegmentView({ segment, index, symbols, fontSize, hasRangeMarkers, selectedRange, onCharacterPress, onAnnotationPress, highlightAnnotation }: { segment: LyricSegment; index: number; symbols: SymbolDefinition[]; fontSize: number; hasRangeMarkers: boolean; highlightAnnotation?: Annotation } & LyricInteraction) {
+function LyricSegmentView({ segment, index, symbols, fontSize, hasRangeMarkers, selectedRange, onCharacterPress, onCharacterLongPress, onAnnotationPress, highlightAnnotation }: { segment: LyricSegment; index: number; symbols: SymbolDefinition[]; fontSize: number; hasRangeMarkers: boolean; highlightAnnotation?: Annotation } & LyricInteraction) {
   const [labelHeight, setLabelHeight] = useState(15);
   return <View testID={`lyric-segment-${index}`} style={[styles.segment, segment.highlightLabel && { marginBottom: labelHeight }]}>
     {hasRangeMarkers && <Markers items={segment.annotations} symbols={symbols} fontSize={fontSize} reserveSpace onAnnotationPress={onAnnotationPress} />}
-    <LyricSegmentText text={segment.text} start={segment.start} selectedRange={selectedRange} onCharacterPress={onCharacterPress} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }, segment.highlight && { backgroundColor: segment.highlight.color }]} />
+    <LyricSegmentText text={segment.text} start={segment.start} selectedRange={selectedRange} onCharacterPress={onCharacterPress} onCharacterLongPress={onCharacterLongPress} style={[styles.lyric, { fontSize, lineHeight: fontSize * 1.45 }, segment.highlight && { backgroundColor: segment.highlight.color }]} />
     {/* 説明は歌詞の幅に収め、短いセグメントの字間を押し広げない。 */}
     {segment.highlightLabel && <Text testID="highlight-label" accessibilityRole={onAnnotationPress ? 'button' : undefined} onPress={onAnnotationPress && highlightAnnotation ? (event) => { event?.stopPropagation(); onAnnotationPress(highlightAnnotation); } : undefined} accessibilityLabel={`${segment.highlightLabel.label}${onAnnotationPress ? 'の色分けを編集' : ''}`} numberOfLines={2} onLayout={(event) => setLabelHeight(event.nativeEvent.layout.height)} style={highlightLabelStyle}>{segment.highlightLabel.label}</Text>}
   </View>;
 }
 
-export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDelete, onPress, onRangeSelect, selectedRange, onCharacterPress, onAnnotationPress }: { line: LyricLine; symbols: SymbolDefinition[]; fontSize?: number; editing: boolean; onAdd?(): void; onDelete?(id: string): void; onPress?(): void; onRangeSelect?(range: TextRange): void } & LyricInteraction) {
+export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDelete, onPress, onRangeSelect, selectedRange, onCharacterPress, onAnnotationPress, onCharacterLongPress, onSelectionEdgeChange, onSelectionDragging }: { line: LyricLine; symbols: SymbolDefinition[]; fontSize?: number; editing: boolean; onAdd?(): void; onDelete?(id: string): void; onPress?(): void; onRangeSelect?(range: TextRange): void } & LyricInteraction) {
   const segments = createLyricSegments(line.text, line.annotations);
   const lineItems = line.annotations.filter((a) => a.targetType === 'line');
   const hasRangeMarkers = segments.some((segment) => segment.annotations.length > 0);
@@ -50,13 +51,13 @@ export function VocalLine({ line, symbols, fontSize = 20, editing, onAdd, onDele
     {segments.length ? segments.map((segment, i) => {
       return <React.Fragment key={`${segment.start}-${segment.end}-${i}`}>
         <BoundaryMarkers items={segment.boundaryAnnotations} symbols={symbols} fontSize={fontSize} reserveAbove={hasRangeMarkers} onAnnotationPress={onAnnotationPress} />
-        {!!segment.text && <LyricSegmentView segment={segment} index={i} symbols={symbols} fontSize={fontSize} hasRangeMarkers={hasRangeMarkers} selectedRange={selectedRange} onCharacterPress={onCharacterPress} onAnnotationPress={onAnnotationPress} highlightAnnotation={line.annotations.find((a) => a.highlight && a.range?.start === segment.start && a.status === 'valid')} />}
+        {!!segment.text && <LyricSegmentView segment={segment} index={i} symbols={symbols} fontSize={fontSize} hasRangeMarkers={hasRangeMarkers} selectedRange={selectedRange} onCharacterPress={onCharacterPress} onCharacterLongPress={onCharacterLongPress} onAnnotationPress={onAnnotationPress} highlightAnnotation={line.annotations.find((a) => a.highlight && a.range?.start === segment.start && a.status === 'valid')} />}
       </React.Fragment>;
     }) : <Text style={[styles.lyric, { fontSize }]}>　</Text>}
   </View>;
   const content = <>
     <Markers items={lineItems} symbols={symbols} fontSize={fontSize} onAnnotationPress={onAnnotationPress} />
-    {onPress ? <LyricSelectionSurface accessibilityLabel={line.text ? `歌詞「${line.text}」を選択` : '空行を選択'} textLength={line.text.length} onPress={onPress} onRangeSelect={onRangeSelect} onCharacterPress={onCharacterPress}>{lyricContent}</LyricSelectionSurface> : lyricContent}
+    {onPress ? <LyricSelectionSurface accessibilityLabel={line.text ? `歌詞「${line.text}」を選択` : '空行を選択'} textLength={line.text.length} selectedRange={selectedRange} onPress={onPress} onRangeSelect={onRangeSelect} onCharacterPress={onCharacterPress} onCharacterLongPress={onCharacterLongPress} onSelectionEdgeChange={onSelectionEdgeChange} onSelectionDragging={onSelectionDragging}>{lyricContent}</LyricSelectionSurface> : lyricContent}
     {line.annotations.filter((a) => a.highlight && a.status === 'needs-review').map((a) => <Text key={`highlight-${a.id}`} accessibilityRole={onAnnotationPress ? 'button' : undefined} onPress={onAnnotationPress ? () => onAnnotationPress(a) : undefined} style={styles.memo}>{a.highlight!.label} ⚠ 要確認（位置を選び直してください）</Text>)}
     {line.annotations.filter((a) => a.memo).map((a) => <Text key={`memo-${a.id}`} style={styles.memo}>・{a.memo}</Text>)}
   </>;
