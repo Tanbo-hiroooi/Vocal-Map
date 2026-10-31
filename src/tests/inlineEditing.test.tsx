@@ -5,7 +5,7 @@ import { Song } from '@/domain/models';
 import { defaultSettings } from '@/storage/migrations';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import React, { useState } from 'react';
-import { Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() };
 const mockSave = jest.fn();
@@ -48,7 +48,7 @@ describe('歌詞上での直接編集', () => {
     await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
     expect(mockSave.mock.calls[0][0].lyrics[0].annotations[0]).toMatchObject({ range: { start: 2, end: 6 }, highlight: { label: 'ミックス' } });
     await fireEvent.press(view.getByRole('button', { name: '閉じる' }));
-    await fireEvent.press(first.getByLabelText('4文字目「え」'));
+    await fireEvent.press(first.getByLabelText('ミックスの色分けを編集'));
     expect(view.getByText('選択中：「伝えたい」を変更')).toBeTruthy();
     await fireEvent.press(view.getByLabelText('裏声で色分け'));
     await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2));
@@ -107,17 +107,86 @@ describe('歌詞上での直接編集', () => {
     expect(view.getByText('選択中：「君に」')).toBeTruthy();
   });
 
-  test('長押しで範囲を作り、先頭・末尾を1文字ずつ調整した範囲に色分けを保存する', async () => {
+  test('1回目のタップでは選択だけ行い、2回目で範囲と編集欄を確定する', async () => {
     const view = await render(<MapScreen />);
     const first = within(view.getByTestId('lyric-line-one'));
-    await fireEvent(first.getByLabelText('3文字目「伝」'), 'longPress');
-    expect(view.getByText('選択中：「伝」')).toBeTruthy();
-    expect(first.getAllByTestId('selection-character-outline')).toHaveLength(1);
-    await fireEvent.press(view.getByLabelText('先頭を1文字前へ'));
-    await fireEvent.press(view.getByLabelText('末尾を1文字後へ'));
+    expect(first.getByLabelText('3文字目「伝」').props.onLongPress).toBeUndefined();
+    await fireEvent.press(first.getByLabelText('2文字目「に」'));
+    expect(view.queryByTestId('quick-annotation-toolbar')).toBeNull();
+    expect(view.getByTestId('selection-prompt')).toBeTruthy();
+    expect(first.getAllByTestId('selection-character-underline')).toHaveLength(1);
+    expect(StyleSheet.flatten(first.getByText('に', { exact: true }).props.style).textDecorationLine).toBeUndefined();
+    expect(StyleSheet.flatten(first.getByTestId('selection-character-underline').props.style)).toMatchObject({ borderBottomWidth: 2 });
+    await fireEvent.press(first.getByLabelText('4文字目「え」'));
     expect(view.getByText('選択中：「に伝え」')).toBeTruthy();
+    expect(view.queryByTestId('selection-adjustments')).toBeNull();
+    expect(view.queryByLabelText('先頭を1文字前へ')).toBeNull();
     await fireEvent.press(view.getByText('色分け', { exact: true }));
     await fireEvent.press(view.getByLabelText('裏声で色分け'));
     expect(mockSave.mock.calls[0][0].lyrics[0].annotations[0]).toMatchObject({ range: { start: 1, end: 4 }, targetTextSnapshot: 'に伝え' });
+  });
+
+  test('同じ文字の2回タップで1文字を選び、ブレスは必ずその直後に置く', async () => {
+    const view = await render(<MapScreen />);
+    const first = within(view.getByTestId('lyric-line-one'));
+    await fireEvent.press(first.getByLabelText('1文字目「君」'));
+    await fireEvent.press(first.getByLabelText('1文字目「君」'));
+    expect(view.getByText('選択中：「君」')).toBeTruthy();
+    await fireEvent.press(view.getByText('ブレス', { exact: true }));
+    expect(view.queryByText('選んだ文字の前')).toBeNull();
+    expect(view.queryByText('選んだ文字の後')).toBeNull();
+    await fireEvent.press(view.getByLabelText('ブレスを付ける'));
+    expect(mockSave.mock.calls[0][0].lyrics[0].annotations[0]).toMatchObject({ targetType: 'boundary', boundary: { index: 1 } });
+  });
+
+  test('行頭ブレスは専用ボタンで位置を指定し、変更しても行頭のまま保存する', async () => {
+    const view = await render(<MapScreen />);
+    const first = within(view.getByTestId('lyric-line-one'));
+    await fireEvent.press(first.getByLabelText('1文字目「君」'));
+    await fireEvent.press(first.getByLabelText('1文字目「君」'));
+    await fireEvent.press(view.getByText('ブレス', { exact: true }));
+    await fireEvent.press(view.getByLabelText('行頭にブレスを置く'));
+    expect(view.getByText('選択中：行頭')).toBeTruthy();
+    await fireEvent.press(view.getByLabelText('ブレスを付ける'));
+    expect(mockSave.mock.calls[0][0].lyrics[0].annotations[0]).toMatchObject({ targetType: 'boundary', boundary: { index: 0 } });
+    await fireEvent.press(view.getByLabelText('短いブレスを付ける'));
+    expect(mockSave.mock.calls[1][0].lyrics[0].annotations).toHaveLength(1);
+    expect(mockSave.mock.calls[1][0].lyrics[0].annotations[0].boundary.index).toBe(0);
+    await fireEvent.press(first.getByLabelText('6文字目「い」'));
+    await fireEvent.press(first.getByLabelText('6文字目「い」'));
+    await fireEvent.press(view.getByText('ブレス', { exact: true }));
+    await fireEvent.press(view.getByLabelText('ブレスを付ける'));
+    expect(mockSave.mock.calls[2][0].lyrics[0].annotations).toHaveLength(2);
+    expect(mockSave.mock.calls[2][0].lyrics[0].annotations[1].boundary.index).toBe(6);
+  });
+
+  test('逆順でも範囲を選べ、色付き文字をタップしても編集欄へ割り込まない', async () => {
+    const view = await render(<MapScreen />);
+    const first = within(view.getByTestId('lyric-line-one'));
+    await fireEvent.press(first.getByLabelText('6文字目「い」'));
+    await fireEvent.press(first.getByLabelText('3文字目「伝」'));
+    await fireEvent.press(view.getByText('色分け', { exact: true }));
+    await fireEvent.press(view.getByLabelText('裏声で色分け'));
+    await fireEvent.press(view.getByText('閉じる'));
+    await fireEvent.press(first.getByLabelText('3文字目「伝」'));
+    expect(view.queryByTestId('quick-annotation-toolbar')).toBeNull();
+    await fireEvent.press(first.getByLabelText('6文字目「い」'));
+    expect(view.getByText('選択中：「伝えたい」')).toBeTruthy();
+    await fireEvent.press(view.getByText('色分け', { exact: true }));
+    await fireEvent.press(view.getByLabelText('ミックスで色分け'));
+    expect(mockSave.mock.calls[1][0].lyrics[0].annotations).toHaveLength(1);
+  });
+
+  test('別の行へのタップは新しい先頭選択として扱い、取り消しもできる', async () => {
+    const view = await render(<MapScreen />);
+    await fireEvent.press(within(view.getByTestId('lyric-line-one')).getByLabelText('3文字目「伝」'));
+    const second = within(view.getByTestId('lyric-line-two'));
+    await fireEvent.press(second.getByLabelText('2文字目「日」'));
+    expect(view.queryByTestId('quick-annotation-toolbar')).toBeNull();
+    expect(second.getAllByTestId('selection-character-underline')).toHaveLength(1);
+    await fireEvent.press(view.getByText('選択を取り消す'));
+    expect(view.queryByTestId('selection-prompt')).toBeNull();
+    expect(view.queryByTestId('selection-character-underline')).toBeNull();
+    expect(mockSave).not.toHaveBeenCalled();
   });
 });
