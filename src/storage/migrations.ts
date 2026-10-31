@@ -1,8 +1,9 @@
 import { createPresetSymbols } from '@/constants/presetSymbols';
 import { AppData, AppSettings, SymbolDefinition } from '@/domain/models';
+import { DEFAULT_AUTO_SCROLL_SPEED, normalizeAutoScrollSpeed } from '@/domain/services/autoScroll';
 
-export const CURRENT_SCHEMA_VERSION = 8;
-export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, lyricLineSpacing: 6, colorScheme: 'system' };
+export const CURRENT_SCHEMA_VERSION = 9;
+export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, lyricLineSpacing: 6, autoScrollSpeed: DEFAULT_AUTO_SCROLL_SPEED, colorScheme: 'system' };
 export const createInitialData = (): AppData => ({ schemaVersion: CURRENT_SCHEMA_VERSION, songs: [], symbols: createPresetSymbols(), settings: defaultSettings });
 
 const legacyArticulations: Record<string, Pick<SymbolDefinition, 'symbol' | 'name' | 'meaning'>> = {
@@ -99,5 +100,6 @@ export function migrateData(input: AppData): AppData {
   if (data.schemaVersion < 8) {
     data = { ...data, schemaVersion: 8 };
   }
-  return data;
+  if (data.schemaVersion < 9) data = { ...data, schemaVersion: 9 };
+  return { ...data, settings: { ...data.settings, autoScrollSpeed: normalizeAutoScrollSpeed(data.settings.autoScrollSpeed) } };
 }

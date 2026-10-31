@@ -51,6 +51,7 @@ export type AppSettings = {
   defaultFontSize: number;
   practiceFontSize: number;
   lyricLineSpacing: number;
+  autoScrollSpeed: number;
   colorScheme: 'system' | 'light' | 'dark';
 };
 export type AppData = {

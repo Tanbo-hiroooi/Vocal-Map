@@ -15,7 +15,8 @@ export class LocalVocalMapRepository implements VocalMapRepository {
   }
   private async write(data: AppData) { await storage.setItem(KEY, JSON.stringify(data)); }
   private mutate(action: (data: AppData) => AppData) {
-    this.queue = this.queue.then(async () => this.write(action(await this.read())));
+    // 1回の容量不足などで、以後の保存キューまで永久に失敗させない。
+    this.queue = this.queue.catch(() => {}).then(async () => this.write(action(await this.read())));
     return this.queue;
   }
   async getSongs() { return (await this.read()).songs.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)); }

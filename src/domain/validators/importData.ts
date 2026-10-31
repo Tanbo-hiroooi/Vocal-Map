@@ -1,4 +1,5 @@
 import { Annotation, AppData } from '@/domain/models';
+import { validAutoScrollSpeed } from '@/domain/services/autoScroll';
 
 function validHighlight(annotation: Annotation): boolean {
   if (!annotation || typeof annotation !== 'object') return false;
@@ -22,6 +23,8 @@ export function validateImportData(input: unknown): ValidationResult {
     && song.lyrics.every((line) => line && typeof line.text === 'string' && Array.isArray(line.annotations) && line.annotations.every(validHighlight)));
   const symbolsValid = data.symbols.every((symbol) => symbol && typeof symbol.id === 'string' && typeof symbol.symbol === 'string' && typeof symbol.name === 'string');
   const spacingValid = data.schemaVersion < 6 || typeof data.settings.lyricLineSpacing === 'number';
+  const speed = data.settings.autoScrollSpeed;
+  if (speed === undefined ? data.schemaVersion >= 9 : !validAutoScrollSpeed(speed)) return { valid: false, message: '自動スクロールの速度は1〜10の整数で指定してください。' };
   if (!songsValid || !symbolsValid || typeof data.settings.defaultFontSize !== 'number' || typeof data.settings.practiceFontSize !== 'number' || !spacingValid) return { valid: false, message: 'データ形式が壊れているため読み込めません。' };
   return { valid: true, data: data as AppData };
 }

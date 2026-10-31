@@ -3,13 +3,17 @@ import { VocalLine } from '@/components/annotations/VocalLine';
 import { Button } from '@/components/common/Button';
 import { confirmAction } from '@/components/common/confirmationDialog';
 import { Screen } from '@/components/common/Screen';
+import { AutoScrollControls } from '@/components/songs/AutoScrollControls';
+import { PracticeScrollArea } from '@/components/songs/PracticeScrollArea';
 import { colors } from '@/constants/theme';
 import { Annotation, LyricLine } from '@/domain/models';
 import { changeEditorMode, editExistingAnnotation, EditorSelection, reselectHighlight, selectEditorCharacter, selectEditorRange } from '@/features/annotations/editorSelection';
 import { useAppData } from '@/features/app/AppProvider';
+import { useAutoScroll } from '@/features/songs/useAutoScroll';
+import { usePracticeSettings } from '@/features/songs/usePracticeSettings';
 import { nowIso } from '@/utils/id';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 export default function MapScreen() {
@@ -21,44 +25,24 @@ export default function MapScreen() {
   const [selection, setSelection] = useState<EditorSelection>();
   const annotationSaving = useRef(false);
   const active = song?.lyrics.find((line) => line.id === selection?.lineId);
-  const [fontSize, setFontSize] = useState(settings.practiceFontSize);
-  const [lineSpacing, setLineSpacing] = useState(settings.lyricLineSpacing);
-  const displayValues = useRef({ fontSize: settings.practiceFontSize, lineSpacing: settings.lyricLineSpacing });
-  const displaySaveVersion = useRef(0);
-  const [displayError, setDisplayError] = useState('');
-  const settingsLoaded = useRef(false);
-  useEffect(() => {
-    if (loading || settingsLoaded.current) return;
-    setFontSize(settings.practiceFontSize);
-    setLineSpacing(settings.lyricLineSpacing);
-    displayValues.current = { fontSize: settings.practiceFontSize, lineSpacing: settings.lyricLineSpacing };
-    settingsLoaded.current = true;
-  }, [loading, settings.lyricLineSpacing, settings.practiceFontSize]);
+  const { fontSize, lineSpacing, autoScrollSpeed, error: displayError, change: changeDisplay } = usePracticeSettings(settings, loading, saveSettings);
+  const lyricScroll = useRef<ScrollView>(null);
+  const lyricsTop = useRef(0);
+  const autoScroll = useAutoScroll(lyricScroll, autoScrollSpeed);
+  useFocusEffect(useCallback(() => autoScroll.pause, [autoScroll.pause]));
 
   if (loading) return <Screen><Text>読み込み中…</Text></Screen>;
   if (!song) return <Screen><Text accessibilityRole="alert">曲が見つかりません。削除された可能性があります。</Text><Button label="曲一覧へ" onPress={() => router.replace('/')} /></Screen>;
 
   const responsiveFontSize = Math.min(fontSize, width < 380 ? 30 : 38);
-  const changeDisplay = (field: 'fontSize' | 'lineSpacing', delta: number) => {
-    const current = displayValues.current;
-    const next = { ...current, [field]: field === 'fontSize'
-      ? Math.max(20, Math.min(42, current.fontSize + delta))
-      : Math.max(0, Math.min(24, current.lineSpacing + delta)) };
-    displayValues.current = next;
-    setFontSize(next.fontSize);
-    setLineSpacing(next.lineSpacing);
-    setDisplayError('');
-    const version = ++displaySaveVersion.current;
-    void saveSettings({ ...settings, practiceFontSize: next.fontSize, lyricLineSpacing: next.lineSpacing }).catch(() => {
-      if (version === displaySaveVersion.current) setDisplayError('文字サイズ・行間を保存できませんでした。もう一度変更してお試しください。');
-    });
-  };
   const closeEditor = () => { Keyboard.dismiss(); setSelection(undefined); };
   const openEditor = (line: LyricLine) => {
+    autoScroll.pause();
     Keyboard.dismiss();
     setSelection((previous) => ({ lineId: line.id, mode: 'symbol', revision: (previous?.revision ?? 0) + 1 }));
   };
   const editAnnotation = (line: LyricLine, annotation: Annotation) => {
+    autoScroll.pause();
     Keyboard.dismiss();
     setSelection((previous) => editExistingAnnotation(previous, line, annotation));
   };
@@ -83,20 +67,22 @@ export default function MapScreen() {
 
   return <Screen scroll={false} contentStyle={styles.screen}>
     <View testID="map-workspace" style={styles.workspace}>
-    <ScrollView testID="map-lyrics-scroll" style={styles.lyricScroll} contentContainerStyle={styles.lyricContent} keyboardShouldPersistTaps="handled">
+    <PracticeScrollArea onInterrupt={autoScroll.pause}>
+    <ScrollView ref={lyricScroll} testID="map-lyrics-scroll" style={styles.lyricScroll} contentContainerStyle={styles.lyricContent} keyboardShouldPersistTaps="handled" onScroll={autoScroll.onScroll} onLayout={autoScroll.onLayout} onContentSizeChange={autoScroll.onContentSizeChange} onScrollBeginDrag={autoScroll.pause} scrollEventThrottle={16}>
     <View style={styles.header}><View style={styles.heading}><Text style={styles.title}>{song.title}</Text><Text style={styles.artist}>{song.artist || 'アーティスト未設定'}</Text></View><View style={styles.headerActions}><Button label="← 曲一覧へ" variant="ghost" onPress={() => router.dismissTo('/')} accessibilityLabel="曲一覧へ戻る"/><Button label="曲情報を編集" variant="secondary" onPress={() => router.push(`/songs/${song.id}/edit`)} /></View></View>
     {song.memo && <Text style={styles.songMemo}>{song.memo}</Text>}
     <View style={styles.guide}><Text style={styles.guideTitle}>歌詞に直接、書き込もう</Text><Text style={styles.guideText}>文字をタップすると編集欄が開き、記号やブレスを付けられます。複数文字を色分けするときは「色分け」を選んでから、歌詞の末尾をタップしてください。PCは色分けの範囲をドラッグでも選べます。付けた記号や色分けの名前をタップすると変更できます。</Text></View>
     <View style={styles.controls}>
-      <View style={styles.controlGroup}><Text style={styles.controlLabel}>文字サイズ</Text><Button label="小さく" variant="ghost" onPress={() => changeDisplay('fontSize', -2)} accessibilityLabel="歌詞の文字を小さくする"/><Text testID="lyric-font-size" style={styles.size}>{fontSize}</Text><Button label="大きく" variant="ghost" onPress={() => changeDisplay('fontSize', 2)} accessibilityLabel="歌詞の文字を大きくする"/></View>
-      <View style={styles.controlGroup}><Text style={styles.controlLabel}>行間</Text><Button label="狭く" variant="ghost" onPress={() => changeDisplay('lineSpacing', -2)} accessibilityLabel="歌詞の行間を狭くする"/><Text style={styles.size}>{lineSpacing}</Text><Button label="広く" variant="ghost" onPress={() => changeDisplay('lineSpacing', 2)} accessibilityLabel="歌詞の行間を広くする"/></View>
+      <View style={styles.controlGroup}><Text style={styles.controlLabel}>文字サイズ</Text><Button label="小さく" variant="ghost" onPress={() => { autoScroll.pause(); changeDisplay('fontSize', -2); }} accessibilityLabel="歌詞の文字を小さくする"/><Text testID="lyric-font-size" style={styles.size}>{fontSize}</Text><Button label="大きく" variant="ghost" onPress={() => { autoScroll.pause(); changeDisplay('fontSize', 2); }} accessibilityLabel="歌詞の文字を大きくする"/></View>
+      <View style={styles.controlGroup}><Text style={styles.controlLabel}>行間</Text><Button label="狭く" variant="ghost" onPress={() => { autoScroll.pause(); changeDisplay('lineSpacing', -2); }} accessibilityLabel="歌詞の行間を狭くする"/><Text style={styles.size}>{lineSpacing}</Text><Button label="広く" variant="ghost" onPress={() => { autoScroll.pause(); changeDisplay('lineSpacing', 2); }} accessibilityLabel="歌詞の行間を広くする"/></View>
     </View>
-    {!!displayError && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{displayError}</Text>}
-    <View testID="lyric-lines" style={[styles.lines, { gap: lineSpacing }]}>{song.lyrics.map((line) => <View key={line.id} testID={`lyric-line-${line.id}`} style={[styles.lineTarget, active?.id === line.id && styles.activeLine]}>
-      <VocalLine line={line} symbols={symbols} fontSize={responsiveFontSize} editing={false} selectedRange={active?.id === line.id ? selection?.range : undefined} onPress={() => { if (!line.text) openEditor(line); }} onRangeSelect={active?.id === line.id && selection?.mode === 'highlight' ? (range) => setSelection((current) => current ? selectEditorRange(current, line, range) : current) : undefined} onCharacterPress={(range) => { Keyboard.dismiss(); setSelection((current) => selectEditorCharacter(current, line.id, range)); }} onAnnotationPress={(annotation) => editAnnotation(line, annotation)} />
+    <View testID="lyric-lines" onLayout={(event) => { lyricsTop.current = event.nativeEvent.layout.y; }} style={[styles.lines, { gap: lineSpacing }]}>{song.lyrics.map((line) => <View key={line.id} testID={`lyric-line-${line.id}`} style={[styles.lineTarget, active?.id === line.id && styles.activeLine]}>
+      <VocalLine line={line} symbols={symbols} fontSize={responsiveFontSize} editing={false} selectedRange={active?.id === line.id ? selection?.range : undefined} onPress={() => { if (!line.text) openEditor(line); }} onRangeSelect={active?.id === line.id && selection?.mode === 'highlight' ? (range) => { autoScroll.pause(); setSelection((current) => current ? selectEditorRange(current, line, range) : current); } : undefined} onCharacterPress={(range) => { autoScroll.pause(); Keyboard.dismiss(); setSelection((current) => selectEditorCharacter(current, line.id, range)); }} onAnnotationPress={(annotation) => editAnnotation(line, annotation)} />
       {active?.id === line.id && selection && <QuickAnnotationToolbar key={`${line.id}:${selection.annotationId ?? 'new'}`} line={line} symbols={symbols} mode={selection.mode} onModeChange={(mode) => setSelection((current) => current ? changeEditorMode(current, mode) : current)} range={selection.range} awaitingEnd={!!selection.anchor} awaitingRange={!!selection.pickingStart} onConfirmRange={() => setSelection((current) => current?.range ? { ...current, anchor: undefined, pickingStart: false, revision: current.revision + 1 } : current)} annotation={line.annotations.find((a) => a.id === selection.annotationId)} onClose={closeEditor} onSave={(annotation) => saveAnnotation(line, annotation)} onDelete={(annotationId) => remove(line, annotationId)} onReselect={() => setSelection((current) => current ? reselectHighlight(current) : current)} />}
     </View>)}</View>
     </ScrollView>
+    </PracticeScrollArea>
+    <AutoScrollControls running={autoScroll.running} finished={autoScroll.finished} canScroll={autoScroll.canScroll} speed={autoScrollSpeed} error={displayError} onStart={() => { Keyboard.dismiss(); setSelection(undefined); autoScroll.start(lyricsTop.current); }} onPause={autoScroll.pause} onSpeedChange={(delta) => changeDisplay('autoScrollSpeed', delta)} />
     </View>
   </Screen>;
 }
