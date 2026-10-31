@@ -30,8 +30,8 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
     const root = rootRef.current;
     if (!root) return;
     const bridge = observeNativeLyricSelection(root, textLength, {
-      // スマホではOSの長押し選択ではなく、先頭・末尾の2回タップだけを使う。
-      canSync: () => inputKind.current === 'mouse' && !mouseSelecting.current,
+      // スマホはタップで編集し、色分けを選んだ後だけ複数文字を選択する。
+      canSync: () => !!rangeCallback.current && inputKind.current === 'mouse' && !mouseSelecting.current,
       onRange: (range) => rangeCallback.current?.(range),
       onActive: () => {},
     });
@@ -98,7 +98,7 @@ export function LyricSelectionSurface({ children, accessibilityLabel, textLength
   return <div ref={rootRef} role={onCharacterPress ? 'group' : 'button'} tabIndex={0} aria-label={accessibilityLabel}
     onPointerDown={handlePointerDown} onContextMenu={(event) => { if (inputKind.current === 'touch') event.preventDefault(); }}
     onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onClick={handleClick} onKeyDown={handleKeyDown}
-    style={{ ...webSurfaceStyle, userSelect: mouseMode ? 'text' : 'none', WebkitUserSelect: mouseMode ? 'text' : 'none' }}>
+    style={{ ...webSurfaceStyle, userSelect: mouseMode && onRangeSelect ? 'text' : 'none', WebkitUserSelect: mouseMode && onRangeSelect ? 'text' : 'none' }}>
     {children}
   </div>;
 }

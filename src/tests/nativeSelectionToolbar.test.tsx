@@ -3,6 +3,7 @@ import React, { act, useState } from 'react';
 import { LyricSelectionSurface, LyricSegmentText } from '@/components/annotations/LyricSelectionSurface.web';
 import { QuickAnnotationToolbar } from '@/components/annotations/QuickAnnotationToolbar';
 import { TextRange } from '@/domain/models';
+import { AnnotationEditMode } from '@/features/annotations/editorSelection';
 
 // ブラウザのSelection APIと実際の編集欄を接続して検証する。
 jest.mock('react-native', () => {
@@ -21,11 +22,12 @@ test('標準の文字選択後、編集欄が自動で開き、一度の操作�
   const save = jest.fn(async () => {});
   function Screen() {
     const [range, setRange] = useState<TextRange>();
+    const [mode, setMode] = useState<AnnotationEditMode>('highlight');
     return <>
       <LyricSelectionSurface accessibilityLabel="歌詞" textLength={6} onPress={() => {}} onRangeSelect={setRange} selectedRange={range}>
         <LyricSegmentText text="君に伝えたい" start={0} style={{}} />
       </LyricSelectionSurface>
-      {range && <QuickAnnotationToolbar line={{ id: 'line', text: '君に伝えたい', order: 0, annotations: [] }} symbols={[]} range={range} awaitingEnd={false} onSave={save} onDelete={async () => {}} onClose={() => setRange(undefined)} onReselect={() => {}} onSelectLine={() => {}} />}
+      {range && <QuickAnnotationToolbar line={{ id: 'line', text: '君に伝えたい', order: 0, annotations: [] }} symbols={[]} mode={mode} onModeChange={setMode} range={range} onSave={save} onDelete={async () => {}} onClose={() => setRange(undefined)} onReselect={() => {}} />}
     </>;
   }
   const host = document.createElement('div'); document.body.append(host);

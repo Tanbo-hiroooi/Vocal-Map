@@ -13,7 +13,7 @@ export function LyricSegmentText({ text, start, style, selectedRange, onCharacte
   if (!onCharacterPress) return <Text style={style}>{text}</Text>;
   return <View style={styles.characters}>{selectionCharacters(text, start).map((character) => {
     const selected = !!selectedRange && character.start < selectedRange.end && character.end > selectedRange.start;
-    return <Pressable key={character.start} accessibilityRole="button" accessibilityLabel={`${character.start + 1}文字目「${character.text}」`} accessibilityHint="先頭と末尾の文字を順にタップして範囲を選びます。同じ文字を2回タップすると1文字を選べます。" accessibilityState={{ selected }}
+    return <Pressable key={character.start} accessibilityRole="button" accessibilityLabel={`${character.start + 1}文字目「${character.text}」`} accessibilityHint="タップして編集します。色分けを選んだ後は末尾の文字をタップして範囲を決めます。" accessibilityState={{ selected }}
       onPress={(event) => { event?.stopPropagation(); onCharacterPress({ start: character.start, end: character.end }); }}>
       <Text selectable={false} style={[style, { flexShrink: 0 }]}>{character.text}</Text>
       {selected && <View pointerEvents="none" testID="selection-character-underline" style={styles.underline} />}

@@ -4,7 +4,8 @@ import { Button } from '@/components/common/Button';
 import { confirmAction } from '@/components/common/confirmationDialog';
 import { Screen } from '@/components/common/Screen';
 import { colors } from '@/constants/theme';
-import { Annotation, LyricLine, TextRange } from '@/domain/models';
+import { Annotation, LyricLine } from '@/domain/models';
+import { changeEditorMode, editExistingAnnotation, EditorSelection, reselectHighlight, selectEditorCharacter, selectEditorRange } from '@/features/annotations/editorSelection';
 import { useAppData } from '@/features/app/AppProvider';
 import { nowIso } from '@/utils/id';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,7 +18,7 @@ export default function MapScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const song = songs.find((item) => item.id === id);
-  const [selection, setSelection] = useState<{ lineId: string; range?: TextRange; anchor?: TextRange; annotationId?: string; picking?: boolean; revision: number }>();
+  const [selection, setSelection] = useState<EditorSelection>();
   const annotationSaving = useRef(false);
   const active = song?.lyrics.find((line) => line.id === selection?.lineId);
   const [fontSize, setFontSize] = useState(settings.practiceFontSize);
@@ -53,21 +54,13 @@ export default function MapScreen() {
     });
   };
   const closeEditor = () => { Keyboard.dismiss(); setSelection(undefined); };
-  const openEditor = (line: LyricLine, range?: TextRange) => {
+  const openEditor = (line: LyricLine) => {
     Keyboard.dismiss();
-    setSelection((previous) => ({ lineId: line.id, range, revision: (previous?.revision ?? 0) + 1 }));
+    setSelection((previous) => ({ lineId: line.id, mode: 'symbol', revision: (previous?.revision ?? 0) + 1 }));
   };
   const editAnnotation = (line: LyricLine, annotation: Annotation) => {
     Keyboard.dismiss();
-    setSelection((previous) => ({ lineId: line.id, range: annotation.status === 'valid' ? annotation.range : undefined, annotationId: annotation.id, picking: annotation.status === 'needs-review', revision: (previous?.revision ?? 0) + 1 }));
-  };
-  const selectCharacter = (line: LyricLine, character: TextRange) => {
-    setSelection((previous) => {
-      const current = previous?.lineId === line.id ? previous : undefined;
-      const anchor = current?.anchor;
-      return { lineId: line.id, range: anchor ? { start: Math.min(anchor.start, character.start), end: Math.max(anchor.end, character.end) } : character,
-        anchor: anchor ? undefined : character, picking: !anchor, annotationId: current?.picking ? current.annotationId : undefined, revision: (previous?.revision ?? 0) + 1 };
-    });
+    setSelection((previous) => editExistingAnnotation(previous, line, annotation));
   };
   const updateLine = async (lineId: string, annotations: LyricLine['annotations']) => {
     if (annotationSaving.current) throw new Error('保存中です。少し待ってからもう一度お試しください。');
@@ -79,7 +72,7 @@ export default function MapScreen() {
   const saveAnnotation = async (line: LyricLine, annotation: Annotation) => {
     const revision = selection?.revision;
     await updateLine(line.id, [...line.annotations.filter((a) => a.id !== annotation.id), annotation]);
-    setSelection((current) => current?.lineId === line.id && current.revision === revision ? { ...current, annotationId: annotation.id, anchor: undefined, picking: false } : current);
+    setSelection((current) => current?.lineId === line.id && current.revision === revision ? { ...current, annotationId: annotation.id, anchor: undefined, pickingStart: false } : current);
   };
   const remove = async (line: LyricLine, annotationId: string) => {
     const label = line.annotations.find((a) => a.id === annotationId)?.highlight ? '色分け' : '記号';
@@ -93,15 +86,15 @@ export default function MapScreen() {
     <ScrollView testID="map-lyrics-scroll" style={styles.lyricScroll} contentContainerStyle={styles.lyricContent} keyboardShouldPersistTaps="handled">
     <View style={styles.header}><View style={styles.heading}><Text style={styles.title}>{song.title}</Text><Text style={styles.artist}>{song.artist || 'アーティスト未設定'}</Text></View><View style={styles.headerActions}><Button label="← 曲一覧へ" variant="ghost" onPress={() => router.dismissTo('/')} accessibilityLabel="曲一覧へ戻る"/><Button label="曲情報を編集" variant="secondary" onPress={() => router.push(`/songs/${song.id}/edit`)} /></View></View>
     {song.memo && <Text style={styles.songMemo}>{song.memo}</Text>}
-    <View style={styles.guide}><Text style={styles.guideTitle}>歌詞に直接、書き込もう</Text><Text style={styles.guideText}>先頭の文字をタップし、次に末尾の文字をタップすると編集欄が開きます。1文字だけなら同じ文字を2回タップ。選択中は青い線で表示します。PCはドラッグも使えます。付けた記号や色分けの名前をタップすると変更できます。</Text></View>
+    <View style={styles.guide}><Text style={styles.guideTitle}>歌詞に直接、書き込もう</Text><Text style={styles.guideText}>文字をタップすると編集欄が開き、記号やブレスを付けられます。複数文字を色分けするときは「色分け」を選んでから、歌詞の末尾をタップしてください。PCは色分けの範囲をドラッグでも選べます。付けた記号や色分けの名前をタップすると変更できます。</Text></View>
     <View style={styles.controls}>
       <View style={styles.controlGroup}><Text style={styles.controlLabel}>文字サイズ</Text><Button label="小さく" variant="ghost" onPress={() => changeDisplay('fontSize', -2)} accessibilityLabel="歌詞の文字を小さくする"/><Text testID="lyric-font-size" style={styles.size}>{fontSize}</Text><Button label="大きく" variant="ghost" onPress={() => changeDisplay('fontSize', 2)} accessibilityLabel="歌詞の文字を大きくする"/></View>
       <View style={styles.controlGroup}><Text style={styles.controlLabel}>行間</Text><Button label="狭く" variant="ghost" onPress={() => changeDisplay('lineSpacing', -2)} accessibilityLabel="歌詞の行間を狭くする"/><Text style={styles.size}>{lineSpacing}</Text><Button label="広く" variant="ghost" onPress={() => changeDisplay('lineSpacing', 2)} accessibilityLabel="歌詞の行間を広くする"/></View>
     </View>
     {!!displayError && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{displayError}</Text>}
     <View testID="lyric-lines" style={[styles.lines, { gap: lineSpacing }]}>{song.lyrics.map((line) => <View key={line.id} testID={`lyric-line-${line.id}`} style={[styles.lineTarget, active?.id === line.id && styles.activeLine]}>
-      <VocalLine line={line} symbols={symbols} fontSize={responsiveFontSize} editing={false} selectedRange={active?.id === line.id ? selection?.range : undefined} onPress={() => { if (!line.text) openEditor(line); }} onRangeSelect={(range) => openEditor(line, range)} onCharacterPress={(range) => selectCharacter(line, range)} onAnnotationPress={(annotation) => editAnnotation(line, annotation)} />
-      {active?.id === line.id && selection && (selection.anchor || (selection.picking && !selection.range) ? <View testID="selection-prompt" style={styles.selectionPrompt}><Text accessibilityLiveRegion="polite" style={styles.guideText}>{selection.anchor ? `「${line.text.slice(selection.anchor.start, selection.anchor.end)}」から選択中。末尾の文字をタップしてください（同じ文字なら1文字を選択）。` : '先頭の文字、末尾の文字の順にタップしてください。'}</Text><Button label="選択を取り消す" variant="ghost" onPress={closeEditor} /></View> : <QuickAnnotationToolbar key={`${line.id}:${selection.annotationId ?? 'new'}`} line={line} symbols={symbols} range={selection.range} awaitingEnd={false} annotation={line.annotations.find((a) => a.id === selection.annotationId)} onClose={closeEditor} onSave={(annotation) => saveAnnotation(line, annotation)} onDelete={(annotationId) => remove(line, annotationId)} onSelectLine={() => openEditor(line)} onReselect={() => setSelection((current) => current ? { ...current, range: undefined, anchor: undefined, picking: true, revision: current.revision + 1 } : current)} />)}
+      <VocalLine line={line} symbols={symbols} fontSize={responsiveFontSize} editing={false} selectedRange={active?.id === line.id ? selection?.range : undefined} onPress={() => { if (!line.text) openEditor(line); }} onRangeSelect={active?.id === line.id && selection?.mode === 'highlight' ? (range) => setSelection((current) => current ? selectEditorRange(current, line, range) : current) : undefined} onCharacterPress={(range) => { Keyboard.dismiss(); setSelection((current) => selectEditorCharacter(current, line.id, range)); }} onAnnotationPress={(annotation) => editAnnotation(line, annotation)} />
+      {active?.id === line.id && selection && <QuickAnnotationToolbar key={`${line.id}:${selection.annotationId ?? 'new'}`} line={line} symbols={symbols} mode={selection.mode} onModeChange={(mode) => setSelection((current) => current ? changeEditorMode(current, mode) : current)} range={selection.range} awaitingEnd={!!selection.anchor} awaitingRange={!!selection.pickingStart} onConfirmRange={() => setSelection((current) => current?.range ? { ...current, anchor: undefined, pickingStart: false, revision: current.revision + 1 } : current)} annotation={line.annotations.find((a) => a.id === selection.annotationId)} onClose={closeEditor} onSave={(annotation) => saveAnnotation(line, annotation)} onDelete={(annotationId) => remove(line, annotationId)} onReselect={() => setSelection((current) => current ? reselectHighlight(current) : current)} />}
     </View>)}</View>
     </ScrollView>
     </View>
@@ -115,7 +108,6 @@ const styles = StyleSheet.create({
   lyricContent: { padding: 12, gap: 16, maxWidth: 760, width: '100%', alignSelf: 'center' },
   lineTarget: { borderLeftWidth: 3, borderLeftColor: 'transparent', paddingLeft: 4 },
   activeLine: { borderLeftColor: colors.primary },
-  selectionPrompt: { gap: 4, alignItems: 'flex-start', paddingVertical: 4 },
   header: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' },
   heading: { flex: 1, minWidth: 180 },
   headerActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
