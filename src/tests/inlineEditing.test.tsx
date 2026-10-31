@@ -75,7 +75,7 @@ describe('歌詞上での直接編集', () => {
     expect(mockSave.mock.calls[2][0].lyrics[0].annotations).toHaveLength(3);
     expect(mockSave.mock.calls[1][0].lyrics[0].annotations[1]).toMatchObject({ range: { start: 0, end: 1 } });
     expect(mockSave.mock.calls[2][0].lyrics[0].annotations[2]).toMatchObject({ targetType: 'boundary', boundary: { index: 1 } });
-    await fireEvent.press(view.getByText('閉じる'));
+    await fireEvent.press(view.getByRole('button', { name: '閉じる' }));
     await fireEvent.press(first.getByLabelText('ブレス、文字の間を編集'));
     await fireEvent.press(view.getByLabelText('短いブレスを付ける'));
     expect(mockSave.mock.calls[3][0].lyrics[0].annotations).toHaveLength(3);
@@ -167,7 +167,7 @@ describe('歌詞上での直接編集', () => {
     await fireEvent.press(view.getByText('色分け', { exact: true }));
     await fireEvent.press(first.getByLabelText('3文字目「伝」'));
     await fireEvent.press(view.getByLabelText('裏声で色分け'));
-    await fireEvent.press(view.getByText('閉じる'));
+    await fireEvent.press(view.getByRole('button', { name: '閉じる' }));
     await fireEvent.press(first.getByLabelText('3文字目「伝」'));
     expect(view.getByText('選択中：「伝」')).toBeTruthy();
     await fireEvent.press(view.getByText('色分け', { exact: true }));
@@ -185,7 +185,7 @@ describe('歌詞上での直接編集', () => {
     expect(second.getByTestId('quick-annotation-toolbar')).toBeTruthy();
     expect(view.getByText('選択中：「日」')).toBeTruthy();
     expect(second.getAllByTestId('selection-character-underline')).toHaveLength(1);
-    await fireEvent.press(view.getByText('閉じる'));
+    await fireEvent.press(view.getByRole('button', { name: '閉じる' }));
     expect(view.queryByTestId('quick-annotation-toolbar')).toBeNull();
     expect(view.queryByTestId('selection-character-underline')).toBeNull();
     expect(mockSave).not.toHaveBeenCalled();

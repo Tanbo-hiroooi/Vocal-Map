@@ -174,6 +174,27 @@ describe('歌詞画面の設定とナビゲーション', () => {
     expect((await repository.getSettings()).autoScrollSpeed).toBe(5);
   });
 
+  test('実行中にパネルを閉じると停止し、再表示しても停止状態を保つ', async () => {
+    jest.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(() => 1);
+    const cancel = jest.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {});
+    try {
+      const view = await render(<MapScreen />);
+      const scroll = view.getByTestId('map-lyrics-scroll');
+      await fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 400, width: 320 } } });
+      await fireEvent(scroll, 'contentSizeChange', 320, 1800);
+      await fireEvent.press(view.getByLabelText('自動スクロールを開始'));
+      expect(view.getByLabelText('自動スクロールを停止')).toBeTruthy();
+      await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを閉じる'));
+      expect(cancel).toHaveBeenCalled();
+      expect(view.queryByLabelText('自動スクロールを停止')).toBeNull();
+      await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
+      expect(view.getByLabelText('自動スクロールを開始')).toBeTruthy();
+      expect(view.getByLabelText('スクロール速度 3、10段階')).toBeTruthy();
+      expect(mockSaveSettings).not.toHaveBeenCalled();
+      await view.unmount();
+    } finally { jest.restoreAllMocks(); }
+  });
+
   test('歌詞画面から履歴に依存せず曲一覧へ戻れる', async () => {
     const view = await render(<MapScreen />);
 
