@@ -27,6 +27,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'song-1' }),
   useRouter: () => mockRouter,
   useFocusEffect: (effect: () => void) => jest.requireActual('react').useEffect(effect, [effect]),
+  Stack: { Screen: ({ options }: { options: { headerRight?(): React.ReactNode } }) => options.headerRight?.() ?? null },
 }));
 
 const settings: AppSettings = {
@@ -113,6 +114,11 @@ describe('歌詞画面の設定とナビゲーション', () => {
     await repository.saveSettings(settings);
     mockSaveSettings.mockImplementation((next) => repository.saveSettings(next));
     const view = await render(<MapScreen />);
+    expect(view.queryByTestId('auto-scroll-controls')).toBeNull();
+    expect(view.queryByTestId('auto-scroll-collapsed')).toBeNull();
+    expect(within(view.getByTestId('map-workspace')).queryByTestId('auto-scroll-header-actions')).toBeNull();
+    await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
+    expect(StyleSheet.flatten(view.getByTestId('auto-scroll-popover').props.style)).toMatchObject({ position: 'absolute', top: 8, right: 12 });
     expect(view.getByLabelText('スクロール速度 3、10段階')).toBeTruthy();
     expect(within(view.getByTestId('map-lyrics-scroll')).queryByTestId('auto-scroll-controls')).toBeNull();
     await fireEvent.press(view.getByLabelText('自動スクロールを速くする'));
@@ -127,6 +133,7 @@ describe('歌詞画面の設定とナビゲーション', () => {
     const restored = await new LocalVocalMapRepository().getSettings();
     mockUseAppData.mockReturnValue({ ...mockUseAppData(), settings: restored });
     const reopened = await render(<MapScreen />);
+    await fireEvent.press(reopened.getByLabelText('自動スクロールの操作パネルを開く'));
     expect(reopened.getByLabelText('スクロール速度 5、10段階')).toBeTruthy();
     expect(reopened.queryByLabelText('自動スクロールを停止')).toBeNull();
   });
@@ -134,8 +141,13 @@ describe('歌詞画面の設定とナビゲーション', () => {
   test('速度の保存失敗を表示し、変更をやり直せる', async () => {
     mockSaveSettings.mockRejectedValueOnce(new Error('Storage full'));
     const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
     await fireEvent.press(view.getByLabelText('自動スクロールを速くする'));
     await waitFor(() => expect(view.getByRole('alert')).toHaveTextContent(/スクロール速度を保存できませんでした/));
+    await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを閉じる'));
+    expect(view.queryByTestId('auto-scroll-popover')).toBeNull();
+    expect(view.getByRole('alert')).toHaveTextContent(/スクロール速度を保存できませんでした/);
+    await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
     await fireEvent.press(view.getByLabelText('自動スクロールを遅くする'));
     expect(mockSaveSettings).toHaveBeenLastCalledWith(settings);
     await waitFor(() => expect(view.queryByRole('alert')).toBeNull());
@@ -146,20 +158,24 @@ describe('歌詞画面の設定とナビゲーション', () => {
     jest.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {});
     try {
       const view = await render(<MapScreen />);
+      await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
       expect(view.getByLabelText('自動スクロールを開始')).toBeDisabled();
       const scroll = view.getByTestId('map-lyrics-scroll');
       await fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 400, width: 320 } } });
       await fireEvent(scroll, 'contentSizeChange', 320, 1800);
       await fireEvent.press(view.getByLabelText('自動スクロールを開始'));
-      expect(view.getByLabelText('自動スクロールを停止')).toBeTruthy();
+      expect(view.getByLabelText('自動スクロールをすぐ停止')).toBeTruthy();
+      expect(view.queryByTestId('auto-scroll-popover')).toBeNull();
       await fireEvent.press(view.getByLabelText('1文字目「一」'));
-      expect(view.queryByLabelText('自動スクロールを停止')).toBeNull();
+      expect(view.queryByLabelText('自動スクロールをすぐ停止')).toBeNull();
+      await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
       await fireEvent.press(view.getByLabelText('自動スクロールを開始'));
       await fireEvent(scroll, 'scrollBeginDrag');
-      expect(view.queryByLabelText('自動スクロールを停止')).toBeNull();
+      expect(view.queryByLabelText('自動スクロールをすぐ停止')).toBeNull();
+      await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
       await fireEvent.press(view.getByLabelText('自動スクロールを開始'));
       await fireEvent(view.getByTestId('practice-scroll-area'), 'touchStart');
-      expect(view.queryByLabelText('自動スクロールを停止')).toBeNull();
+      expect(view.queryByLabelText('自動スクロールをすぐ停止')).toBeNull();
       await view.unmount();
     } finally { jest.restoreAllMocks(); }
   });
@@ -179,14 +195,16 @@ describe('歌詞画面の設定とナビゲーション', () => {
     const cancel = jest.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {});
     try {
       const view = await render(<MapScreen />);
+      await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
       const scroll = view.getByTestId('map-lyrics-scroll');
       await fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 400, width: 320 } } });
       await fireEvent(scroll, 'contentSizeChange', 320, 1800);
       await fireEvent.press(view.getByLabelText('自動スクロールを開始'));
-      expect(view.getByLabelText('自動スクロールを停止')).toBeTruthy();
+      expect(view.getByLabelText('自動スクロールをすぐ停止')).toBeTruthy();
+      await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
       await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを閉じる'));
       expect(cancel).toHaveBeenCalled();
-      expect(view.queryByLabelText('自動スクロールを停止')).toBeNull();
+      expect(view.queryByLabelText('自動スクロールをすぐ停止')).toBeNull();
       await fireEvent.press(view.getByLabelText('自動スクロールの操作パネルを開く'));
       expect(view.getByLabelText('自動スクロールを開始')).toBeTruthy();
       expect(view.getByLabelText('スクロール速度 3、10段階')).toBeTruthy();

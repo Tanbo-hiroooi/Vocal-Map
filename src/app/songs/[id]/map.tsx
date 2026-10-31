@@ -4,6 +4,7 @@ import { Button } from '@/components/common/Button';
 import { confirmAction } from '@/components/common/confirmationDialog';
 import { Screen } from '@/components/common/Screen';
 import { AutoScrollControls } from '@/components/songs/AutoScrollControls';
+import { AutoScrollHeaderButton } from '@/components/songs/AutoScrollHeaderButton';
 import { PracticeScrollArea } from '@/components/songs/PracticeScrollArea';
 import { colors } from '@/constants/theme';
 import { Annotation, LyricLine } from '@/domain/models';
@@ -12,7 +13,7 @@ import { useAppData } from '@/features/app/AppProvider';
 import { useAutoScroll } from '@/features/songs/useAutoScroll';
 import { usePracticeSettings } from '@/features/songs/usePracticeSettings';
 import { nowIso } from '@/utils/id';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
@@ -29,7 +30,9 @@ export default function MapScreen() {
   const lyricScroll = useRef<ScrollView>(null);
   const lyricsTop = useRef(0);
   const autoScroll = useAutoScroll(lyricScroll, autoScrollSpeed);
-  useFocusEffect(useCallback(() => autoScroll.pause, [autoScroll.pause]));
+  const pauseAutoScroll = autoScroll.pause;
+  const [autoScrollPanelVisible, setAutoScrollPanelVisible] = useState(false);
+  useFocusEffect(useCallback(() => () => { pauseAutoScroll(); setAutoScrollPanelVisible(false); }, [pauseAutoScroll, setAutoScrollPanelVisible]));
 
   if (loading) return <Screen><Text>読み込み中…</Text></Screen>;
   if (!song) return <Screen><Text accessibilityRole="alert">曲が見つかりません。削除された可能性があります。</Text><Button label="曲一覧へ" onPress={() => router.replace('/')} /></Screen>;
@@ -65,7 +68,9 @@ export default function MapScreen() {
     setSelection((current) => current?.annotationId === annotationId ? undefined : current);
   };
 
-  return <Screen scroll={false} contentStyle={styles.screen}>
+  return <>
+    <Stack.Screen options={{ headerTitleStyle: { fontWeight: '800', fontSize: 17 }, headerRight: () => <AutoScrollHeaderButton running={autoScroll.running} expanded={autoScrollPanelVisible} onOpen={() => { Keyboard.dismiss(); setAutoScrollPanelVisible(true); }} onPause={autoScroll.pause} /> }} />
+    <Screen scroll={false} contentStyle={styles.screen}>
     <View testID="map-workspace" style={styles.workspace}>
     <PracticeScrollArea onInterrupt={autoScroll.pause}>
     <ScrollView ref={lyricScroll} testID="map-lyrics-scroll" style={styles.lyricScroll} contentContainerStyle={styles.lyricContent} keyboardShouldPersistTaps="handled" onScroll={autoScroll.onScroll} onLayout={autoScroll.onLayout} onContentSizeChange={autoScroll.onContentSizeChange} onScrollBeginDrag={autoScroll.pause} scrollEventThrottle={16}>
@@ -82,9 +87,12 @@ export default function MapScreen() {
     </View>)}</View>
     </ScrollView>
     </PracticeScrollArea>
-    <AutoScrollControls running={autoScroll.running} finished={autoScroll.finished} canScroll={autoScroll.canScroll} speed={autoScrollSpeed} error={displayError} onStart={() => { Keyboard.dismiss(); setSelection(undefined); autoScroll.start(lyricsTop.current); }} onPause={autoScroll.pause} onSpeedChange={(delta) => changeDisplay('autoScrollSpeed', delta)} />
+    {autoScrollPanelVisible && <View testID="auto-scroll-popover" style={[styles.autoScrollPopover, { width: Math.min(360, width - 24) }]}>
+      <AutoScrollControls running={autoScroll.running} finished={autoScroll.finished} canScroll={autoScroll.canScroll} speed={autoScrollSpeed} error={displayError} onStart={() => { Keyboard.dismiss(); setSelection(undefined); setAutoScrollPanelVisible(false); autoScroll.start(lyricsTop.current); }} onPause={autoScroll.pause} onClose={() => setAutoScrollPanelVisible(false)} onSpeedChange={(delta) => changeDisplay('autoScrollSpeed', delta)} />
+    </View>}
+    {!autoScrollPanelVisible && !!displayError && <View style={styles.displayError}><Text accessibilityRole="alert" style={{ color: colors.danger }}>{displayError}</Text></View>}
     </View>
-  </Screen>;
+  </Screen></>;
 }
 
 const styles = StyleSheet.create({
@@ -108,4 +116,6 @@ const styles = StyleSheet.create({
   controlLabel: { color: colors.muted, fontWeight: '700' },
   size: { fontWeight: '900', color: colors.primary, minWidth: 28, textAlign: 'center' },
   lines: { width: '100%' },
+  autoScrollPopover: { position: 'absolute', top: 8, right: 12, zIndex: 20 },
+  displayError: { position: 'absolute', top: 8, left: 12, right: 12, zIndex: 21, padding: 12, borderRadius: 12, backgroundColor: colors.dangerSoft },
 });

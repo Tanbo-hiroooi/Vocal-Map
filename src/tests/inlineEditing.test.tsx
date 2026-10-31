@@ -10,7 +10,7 @@ import { Dimensions, StyleSheet } from 'react-native';
 const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() };
 const mockSave = jest.fn();
 const mockUseAppData = jest.fn();
-jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'song' }), useRouter: () => mockRouter, useFocusEffect: (effect: () => void) => jest.requireActual('react').useEffect(effect, [effect]) }));
+jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'song' }), useRouter: () => mockRouter, useFocusEffect: (effect: () => void) => jest.requireActual('react').useEffect(effect, [effect]), Stack: { Screen: ({ options }: { options: { headerRight?(): React.ReactNode } }) => options.headerRight?.() ?? null } }));
 jest.mock('@/features/app/AppProvider', () => ({ useAppData: () => mockUseAppData() }));
 jest.mock('@/components/common/confirmationDialog', () => ({ confirmAction: async () => true }));
 const song: Song = { id: 'song', title: '同じ画面で練習', createdAt: '', updatedAt: '', lyrics: [
