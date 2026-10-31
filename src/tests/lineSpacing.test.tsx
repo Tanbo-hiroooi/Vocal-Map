@@ -71,6 +71,14 @@ describe('歌詞画面の設定とナビゲーション', () => {
     await waitFor(() => expect(mockSaveSettings).toHaveBeenCalledWith({ ...settings, lyricLineSpacing: 8 }));
   });
 
+  test('歌詞コンテナの内側に開始用の余白を取り、1行目が開始直後に上端へ張り付かない', async () => {
+    const view = await render(<MapScreen />);
+    const style = StyleSheet.flatten(view.getByTestId('lyric-lines').props.style);
+    expect(style.paddingTop).toBe(120);
+    expect(style.marginTop).toBeUndefined();
+    expect(view.getByLabelText('1文字目「一」')).toBeTruthy();
+  });
+
   test('設定画面から好みの行間へ変更できる', async () => {
     const view = await render(<SettingsScreen />);
     expect(view.getByText('歌詞の行間')).toBeTruthy();

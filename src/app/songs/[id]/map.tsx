@@ -115,7 +115,8 @@ const styles = StyleSheet.create({
   controlGroup: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 6 },
   controlLabel: { color: colors.muted, fontWeight: '700' },
   size: { fontWeight: '900', color: colors.primary, minWidth: 28, textAlign: 'center' },
-  lines: { width: '100%' },
+  // start()はこのコンテナの上端へ移動するため、内側に余白を取り1行目を読み始める時間を残す。
+  lines: { width: '100%', paddingTop: 120 },
   autoScrollPopover: { position: 'absolute', top: 8, right: 12, zIndex: 20 },
   displayError: { position: 'absolute', top: 8, left: 12, right: 12, zIndex: 21, padding: 12, borderRadius: 12, backgroundColor: colors.dangerSoft },
 });
