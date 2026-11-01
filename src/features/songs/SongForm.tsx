@@ -3,15 +3,17 @@ import { FormField } from '@/components/common/FormField';
 import { colors } from '@/constants/theme';
 import { Song } from '@/domain/models';
 import { splitLyrics, updateSongLyrics } from '@/domain/services/lyrics';
+import { parseSongTags } from '@/domain/services/songLibrary';
 import { createId, nowIso } from '@/utils/id';
 import React, { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export function SongForm({song,onSave}:{song?:Song;onSave(song:Song):Promise<void>}) {
   const [title,setTitle]=useState(song?.title??''); const [artist,setArtist]=useState(song?.artist??''); const [memo,setMemo]=useState(song?.memo??'');
+  const [tags, setTags] = useState(song?.tags?.join('、') ?? '');
   const [lyrics,setLyrics]=useState(song?.lyrics.map((line)=>line.text).join('\n')??''); const [errors,setErrors]=useState<{title?:string;lyrics?:string}>({}); const [saving,setSaving]=useState(false); const [message,setMessage]=useState('');
   const submit=async()=>{const nextErrors={title:!title.trim()?'曲タイトルを入力してください。':undefined,lyrics:!lyrics.trim()?'歌詞を入力してください。':undefined};setErrors(nextErrors);if(nextErrors.title||nextErrors.lyrics)return;
-    setSaving(true);setMessage('');const date=nowIso();const value:Song={id:song?.id??createId(),title:title.trim(),artist:artist.trim()||undefined,memo:memo.trim()||undefined,lyrics:song?updateSongLyrics(song,lyrics):splitLyrics(lyrics),createdAt:song?.createdAt??date,updatedAt:date};
+    setSaving(true);setMessage('');const date=nowIso();const value:Song={...song,id:song?.id??createId(),title:title.trim(),artist:artist.trim()||undefined,memo:memo.trim()||undefined,tags:parseSongTags(tags),isFavorite:song?.isFavorite??false,lyrics:song?updateSongLyrics(song,lyrics):splitLyrics(lyrics),createdAt:song?.createdAt??date,updatedAt:date};
     try{await onSave(value)}catch{setMessage('保存できませんでした。もう一度お試しください。')}finally{setSaving(false)}};
   return <View testID="song-form" style={styles.container}>
     <ScrollView testID="song-form-scroll" style={styles.scroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled"
@@ -19,6 +21,7 @@ export function SongForm({song,onSave}:{song?:Song;onSave(song:Song):Promise<voi
       <View><Text style={styles.kicker}>VOCAL MAP</Text><Text style={styles.title}>{song?'曲と歌詞を編集':'歌唱設計図を作る'}</Text><Text style={styles.lead}>歌詞は端末内だけに保存され、外部へ送信されません。</Text></View>
       <FormField label="曲タイトル *" value={title} onChangeText={setTitle} error={errors.title} placeholder="例：練習曲" returnKeyType="next"/>
       <FormField label="アーティスト名" value={artist} onChangeText={setArtist} placeholder="任意"/>
+      <FormField label="整理用タグ" accessibilityLabel="整理用タグ" value={tags} onChangeText={setTags} placeholder="例：練習中、レッスン、本番" hint="「、」またはカンマで区切ります。曲一覧でタグごとに絞り込めます。"/>
       <FormField label="曲についてのメモ" value={memo} onChangeText={setMemo} placeholder="キー、練習目標など" multiline/>
       <FormField label="歌詞 *" value={lyrics} onChangeText={setLyrics} error={errors.lyrics} hint="改行ごとに1行として保存します。空行も保持されます。" placeholder="歌詞を入力または貼り付け" multiline style={styles.lyrics}/>
     </ScrollView>

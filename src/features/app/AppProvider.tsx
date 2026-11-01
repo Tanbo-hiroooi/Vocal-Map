@@ -6,6 +6,7 @@ import React, { createContext, PropsWithChildren, useCallback, useContext, useEf
 type AppContextValue = {
   songs: Song[]; symbols: SymbolDefinition[]; settings: AppSettings; loading: boolean; error: string | null;
   refresh(): Promise<void>; saveSong(song: Song): Promise<void>; deleteSong(id: string): Promise<void>;
+  setSongFavorite(id: string, favorite: boolean): Promise<void>;
   saveSymbol(symbol: SymbolDefinition): Promise<void>; deleteSymbol(id: string): Promise<void>; saveSettings(settings: AppSettings): Promise<void>;
 };
 const AppContext = createContext<AppContextValue | null>(null);
@@ -28,6 +29,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const wrap = useCallback(async (action: () => Promise<void>) => { try { setError(null); await action(); await refresh(); } catch (e) { const message = e instanceof Error ? e.message : '保存に失敗しました。'; setError(message); throw e; } }, [refresh]);
   const value = useMemo<AppContextValue>(() => ({ songs, symbols, settings, loading, error, refresh,
     saveSong: (song) => wrap(() => vocalMapRepository.saveSong(song)), deleteSong: (id) => wrap(() => vocalMapRepository.deleteSong(id)),
+    setSongFavorite: (id, favorite) => wrap(() => vocalMapRepository.setSongFavorite(id, favorite)),
     saveSymbol: (symbol) => wrap(() => vocalMapRepository.saveSymbol(symbol)), deleteSymbol: (id) => wrap(() => vocalMapRepository.deleteSymbol(id)),
     saveSettings: (value) => wrap(() => vocalMapRepository.saveSettings(value)),
   }), [songs, symbols, settings, loading, error, refresh, wrap]);

@@ -23,6 +23,9 @@ export class LocalVocalMapRepository implements VocalMapRepository {
   async getSong(id: string) { return (await this.read()).songs.find((song) => song.id === id) ?? null; }
   async saveSong(song: Song) { return this.mutate((data) => ({ ...data, songs: [...data.songs.filter((s) => s.id !== song.id), song] })); }
   async deleteSong(id: string) { return this.mutate((data) => ({ ...data, songs: data.songs.filter((s) => s.id !== id) })); }
+  async setSongFavorite(id: string, favorite: boolean) {
+    return this.mutate((data) => ({ ...data, songs: data.songs.map((song) => song.id === id ? { ...song, isFavorite: favorite } : song) }));
+  }
   async getSymbols() { return (await this.read()).symbols.sort((a,b) => a.order - b.order); }
   async saveSymbol(symbol: SymbolDefinition) { return this.mutate((data) => ({ ...data, symbols: [...data.symbols.filter((s) => s.id !== symbol.id), symbol] })); }
   async deleteSymbol(id: string) { return this.mutate((data) => ({ ...data, symbols: data.symbols.filter((s) => s.id !== id) })); }

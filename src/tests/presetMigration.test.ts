@@ -51,7 +51,7 @@ describe('重複する「なめらかに」プリセットの廃止', () => {
     data.songs = [{ id: 'song', title: '練習曲', lyrics: [{ id: 'line', text: '歌詞', order: 0, annotations: [annotation] }], createdAt: date, updatedAt: date }];
     const migrated = migrateData(data);
     expect(migrated.symbols.find((symbol) => symbol.id === legacySmooth.id)).toEqual({ ...legacySmooth, isPreset: false });
-    expect(migrated.songs).toEqual(data.songs);
+    expect(migrated.songs).toEqual(data.songs.map((song) => ({ ...song, tags: [], isFavorite: false })));
     expect(migrated.symbols.filter((symbol) => symbol.isPreset)).toHaveLength(36);
   });
 

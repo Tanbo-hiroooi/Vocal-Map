@@ -2,7 +2,7 @@ import { createPresetSymbols } from '@/constants/presetSymbols';
 import { AppData, AppSettings, SymbolDefinition } from '@/domain/models';
 import { DEFAULT_AUTO_SCROLL_SPEED, normalizeAutoScrollSpeed } from '@/domain/services/autoScroll';
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 export const defaultSettings: AppSettings = { defaultFontSize: 18, practiceFontSize: 28, lyricLineSpacing: 6, autoScrollSpeed: DEFAULT_AUTO_SCROLL_SPEED, colorScheme: 'system' };
 export const createInitialData = (): AppData => ({ schemaVersion: CURRENT_SCHEMA_VERSION, songs: [], symbols: createPresetSymbols(), settings: defaultSettings });
 
@@ -101,5 +101,7 @@ export function migrateData(input: AppData): AppData {
     data = { ...data, schemaVersion: 8 };
   }
   if (data.schemaVersion < 9) data = { ...data, schemaVersion: 9 };
+  if (data.schemaVersion < 10) data = { ...data, schemaVersion: 10,
+    songs: data.songs.map((song) => ({ ...song, tags: song.tags ?? [], isFavorite: song.isFavorite ?? false })) };
   return { ...data, settings: { ...data.settings, autoScrollSpeed: normalizeAutoScrollSpeed(data.settings.autoScrollSpeed) } };
 }

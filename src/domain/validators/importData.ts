@@ -20,6 +20,8 @@ export function validateImportData(input: unknown): ValidationResult {
   if (typeof data.schemaVersion !== 'number') return { valid: false, message: 'schemaVersionがありません。' };
   if (!Array.isArray(data.songs) || !Array.isArray(data.symbols) || !data.settings) return { valid: false, message: '曲、記号、設定の必須データがありません。' };
   const songsValid = data.songs.every((song) => song && typeof song.id === 'string' && typeof song.title === 'string' && Array.isArray(song.lyrics)
+    && (song.tags === undefined || (Array.isArray(song.tags) && song.tags.every((tag) => typeof tag === 'string')))
+    && (song.isFavorite === undefined || typeof song.isFavorite === 'boolean')
     && song.lyrics.every((line) => line && typeof line.text === 'string' && Array.isArray(line.annotations) && line.annotations.every(validHighlight)));
   const symbolsValid = data.symbols.every((symbol) => symbol && typeof symbol.id === 'string' && typeof symbol.symbol === 'string' && typeof symbol.name === 'string');
   const spacingValid = data.schemaVersion < 6 || typeof data.settings.lyricLineSpacing === 'number';

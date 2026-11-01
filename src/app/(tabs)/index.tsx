@@ -3,20 +3,21 @@ import { confirmAction } from '@/components/common/confirmationDialog';
 import { PageHeading } from '@/components/common/PageHeading';
 import { Screen } from '@/components/common/Screen';
 import { EmptySongs } from '@/components/songs/EmptySongs';
-import { SongCard } from '@/components/songs/SongCard';
 import { colors } from '@/constants/theme';
 import { useAppData } from '@/features/app/AppProvider';
+import { SongLibrary } from '@/features/songs/SongLibrary';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 export default function SongsScreen() {
-  const { songs, deleteSong, loading, error } = useAppData();
+  const { songs, deleteSong, setSongFavorite, loading, error } = useAppData();
   const router = useRouter();
-  const { width } = useWindowDimensions();
   const createSong = () => router.push('/songs/new');
   const remove = async (id: string, title: string) => {
-    if (await confirmAction('曲を削除しますか？', `「${title}」とすべての記号が削除されます。`, '削除', true)) await deleteSong(id);
+    if (await confirmAction('曲を削除しますか？', `「${title}」とすべての記号が削除されます。`, '削除', true)) {
+      try { await deleteSong(id); } catch { /* AppProviderのエラーを画面上へ表示する。 */ }
+    }
   };
 
   return <Screen>
@@ -25,9 +26,8 @@ export default function SongsScreen() {
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     {loading ? <View style={styles.loading}><ActivityIndicator color={colors.primary} /><Text style={styles.muted}>読み込み中…</Text></View>
       : songs.length === 0 ? <EmptySongs onCreate={createSong} />
-        : <View style={styles.list}>{songs.map((song, index) => <SongCard key={song.id} song={song} index={index}
-          style={width >= 760 ? styles.wideCard : undefined}
-          onOpen={() => router.push(`/songs/${song.id}/map`)} onEdit={() => router.push(`/songs/${song.id}/edit`)} onDelete={() => void remove(song.id, song.title)} />)}</View>}
+        : <SongLibrary songs={songs} onFavorite={setSongFavorite}
+          onOpen={(song) => router.push(`/songs/${song.id}/map`)} onEdit={(song) => router.push(`/songs/${song.id}/edit`)} onDelete={(song) => void remove(song.id, song.title)} />}
   </Screen>;
 }
 
@@ -40,6 +40,4 @@ const styles = StyleSheet.create({
   error: { color: colors.danger },
   loading: { flexDirection: 'row', gap: 8, paddingVertical: 16 },
   muted: { color: colors.muted },
-  list: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  wideCard: { flexBasis: '48%', flexGrow: 1, maxWidth: '50%' },
 });

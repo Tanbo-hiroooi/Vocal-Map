@@ -30,6 +30,8 @@ export type Song = {
   title: string;
   artist?: string;
   memo?: string;
+  tags?: string[];
+  isFavorite?: boolean;
   lyrics: LyricLine[];
   createdAt: string;
   updatedAt: string;
